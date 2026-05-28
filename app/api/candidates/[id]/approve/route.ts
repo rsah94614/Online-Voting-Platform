@@ -1,34 +1,47 @@
 // app/api/candidates/[id]/approve/route.ts
-import { NextRequest } from 'next/server'
-import { CandidateStatus, Role } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
-import { getAuthUser, requireRole } from '@/lib/auth'
-import { ok, unauthorized, forbidden, notFound, badRequest, handleApiError } from '@/lib/response'
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import prisma from "@/lib/db";
+import { getUserFromRequest } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
+import { AuditAction } from "@prisma/client";
 
-type Params = { params: Promise<{ id: string }> }
+type Params = { params: Promise<{ id: string }> };
+
+const schema = z.object({
+  approved: z.boolean(),
+  reason: z.string().optional(),
+});
 
 export async function POST(req: NextRequest, { params }: Params) {
-  try {
-    const user = await getAuthUser(req)
-    if (!user) return unauthorized()
-    if (!requireRole(user, Role.ADMIN)) return forbidden()
-
-    const { id } = await params
-    const candidate = await prisma.candidateProfile.findUnique({ where: { id } })
-    if (!candidate) return notFound()
-    if (candidate.status === CandidateStatus.APPROVED) return badRequest('Already approved')
-
-    const updated = await prisma.candidateProfile.update({
-      where: { id },
-      data:  { status: CandidateStatus.APPROVED },
-    })
-
-    await prisma.auditLog.create({
-      data: { userId: user.sub, action: 'CANDIDATE_APPROVED', entity: 'Candidate', entityId: id },
-    })
-
-    return ok(updated, 'Candidate approved')
-  } catch (e) {
-    return handleApiError(e)
+  const { id } = await params;
+  const user = await getUserFromRequest(req);
+  if (!user || user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const body = await req.json();
+  const { approved, reason } = schema.parse(body);
+
+  const candidate = await prisma.candidate.update({
+    where: { id },
+    data: { isApproved: approved },
+    include: { user: { select: { id: true, name: true, email: true } } },
+  });
+
+  // Also update the User.isApproved if approving
+  if (approved) {
+    await prisma.user.update({ where: { id: candidate.userId }, data: { isApproved: true } });
+  }
+
+  await logAudit({
+    userId: user.sub,
+    action: approved ? AuditAction.CANDIDATE_APPROVED : AuditAction.CANDIDATE_REJECTED,
+    resource: "candidate",
+    resourceId: id,
+    details: { name: candidate.user.name, approved, reason },
+    req,
+  });
+
+  return NextResponse.json({ candidate });
 }

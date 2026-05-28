@@ -1,44 +1,70 @@
 // app/api/auth/login/route.ts
-import { z } from 'zod'
-import { prisma } from '@/lib/prisma'
-import { verifyPassword } from '@/lib/password'
-import { signToken, setAuthCookie } from '@/lib/auth'
-import { ok, badRequest, unauthorized, handleApiError } from '@/lib/response'
+import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+import { z } from "zod";
+import prisma from "@/lib/db";
+import { signToken, setAuthCookie } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
+import { AuditAction } from "@prisma/client";
 
 const schema = z.object({
-  email:    z.string().email(),
+  email: z.string().email(),
   password: z.string().min(1),
-})
+});
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { email, password } = schema.parse(await req.json())
+    const body = await req.json();
+    const { email, password } = schema.parse(body);
 
-    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } })
-    if (!user) return unauthorized('Invalid email or password')
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    }
 
-    const valid = await verifyPassword(password, user.password)
-    if (!valid) return unauthorized('Invalid email or password')
+    if (user.isSuspended) {
+      return NextResponse.json({ error: "Account suspended. Contact support." }, { status: 403 });
+    }
 
-    if (!user.isActive) return unauthorized('Account is deactivated. Contact support.')
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    }
+
+    await logAudit({
+      userId: user.id,
+      action: AuditAction.USER_LOGIN,
+      resource: "auth",
+      details: { email: user.email },
+      req,
+    });
 
     const token = await signToken({
-      sub:   user.id,
+      sub: user.id,
       email: user.email,
-      name:  user.name,
-      role:  user.role,
-    })
+      name: user.name,
+      role: user.role,
+    });
 
-    await setAuthCookie(token)
+    const res = NextResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        isApproved: user.isApproved,
+        isVerified: user.isVerified,
+        avatarUrl: user.avatarUrl,
+      },
+    });
 
-    // Audit
-    await prisma.auditLog.create({
-      data: { userId: user.id, action: 'USER_LOGIN', entity: 'User', entityId: user.id },
-    })
-
-    const { password: _, ...safeUser } = user
-    return ok({ user: safeUser, token }, 'Login successful')
-  } catch (e) {
-    return handleApiError(e)
+    setAuthCookie(res, token);
+    return res;
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json({ error: "Validation failed", issues: err.errors }, { status: 400 });
+    }
+    console.error("[login]", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -1,84 +1,63 @@
 // app/api/elections/[id]/results/route.ts
-import { NextRequest } from 'next/server'
-import { ElectionStatus, Role } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
-import { getAuthUser } from '@/lib/auth'
-import { ok, unauthorized, notFound, forbidden, handleApiError } from '@/lib/response'
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/db";
 
-type Params = { params: Promise<{ id: string }> }
+type Params = { params: Promise<{ id: string }> };
 
-export async function GET(req: NextRequest, { params }: Params) {
-  try {
-    const user = await getAuthUser(req)
-    if (!user) return unauthorized()
+export async function GET(_req: NextRequest, { params }: Params) {
+  const { id } = await params;
 
-    const { id } = await params
-    const election = await prisma.election.findUnique({
-      where: { id },
-      include: { candidates: { include: { user: { select: { name: true } }, party: { select: { name: true, abbreviation: true, color: true } } } } },
-    })
-    if (!election) return notFound()
+  const election = await prisma.election.findUnique({
+    where: { id },
+    include: {
+      candidates: {
+        include: {
+          candidate: {
+            include: {
+              user: { select: { name: true, avatarUrl: true } },
+              party: { select: { name: true, abbreviation: true, color: true } },
+            },
+          },
+          _count: { select: { votes: true } },
+        },
+        orderBy: { votes: { _count: "desc" } },
+      },
+      _count: { select: { votes: true } },
+    },
+  });
 
-    // Respect result disclosure settings
-    if (
-      election.status !== ElectionStatus.ENDED &&
-      election.resultDisclosure === 'AFTER_CLOSE' &&
-      user.role !== Role.ADMIN
-    ) {
-      return forbidden('Results will be disclosed after the election closes')
-    }
+  if (!election) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // Count votes per candidate
-    const voteCounts = await prisma.vote.groupBy({
-      by: ['candidateId'],
-      where: { electionId: id },
-      _count: { id: true },
-    })
+  const totalVotes = election._count.votes;
 
-    const totalVotesCast   = voteCounts.reduce((sum, v) => sum + v._count.id, 0)
-    const totalRegistered  = await prisma.voterRegistration.count({ where: { electionId: id } })
-    const turnoutPercent   = totalRegistered > 0 ? (totalVotesCast / totalRegistered) * 100 : 0
+  const results = election.candidates.map((ec) => ({
+    electionCandidateId: ec.id,
+    candidateId: ec.candidateId,
+    name: ec.candidate.user.name,
+    avatarUrl: ec.candidate.user.avatarUrl,
+    party: ec.candidate.party,
+    votes: ec._count.votes,
+    percentage: totalVotes > 0 ? Math.round((ec._count.votes / totalVotes) * 10000) / 100 : 0,
+  }));
 
-    const candidateResults = election.candidates
-      .map((c) => {
-        const vc = voteCounts.find((v) => v.candidateId === c.id)
-        const votes = vc?._count.id ?? 0
-        return {
-          candidateId:  c.id,
-          name:         c.user.name,
-          party:        c.party?.name ?? 'Independent',
-          partyColor:   c.party?.color ?? '#94a3b8',
-          votes,
-          percentage:   totalVotesCast > 0 ? (votes / totalVotesCast) * 100 : 0,
-        }
-      })
-      .sort((a, b) => b.votes - a.votes)
-      .map((c, i) => ({ ...c, isLeading: i === 0 }))
+  // Sort desc
+  results.sort((a, b) => b.votes - a.votes);
+  const winner = results[0] ?? null;
 
-    // Hourly turnout (last 12 hours)
-    const hoursAgo12 = new Date(Date.now() - 12 * 60 * 60 * 1000)
-    const hourlyRaw = await prisma.$queryRaw<{ hour: Date; count: bigint }[]>`
-      SELECT date_trunc('hour', "castAt") as hour, count(*) as count
-      FROM votes
-      WHERE "electionId" = ${id} AND "castAt" > ${hoursAgo12}
-      GROUP BY hour ORDER BY hour ASC
-    `
-
-    return ok({
-      electionId:    id,
-      title:         election.title,
-      status:        election.status,
-      totalVoters:   totalRegistered,
-      totalVotesCast,
-      turnoutPercent: Math.round(turnoutPercent * 10) / 10,
-      lastUpdated:   new Date().toISOString(),
-      candidateResults,
-      turnoutByHour: hourlyRaw.map((h) => ({
-        time:  h.hour.toISOString(),
-        votes: Number(h.count),
-      })),
-    })
-  } catch (e) {
-    return handleApiError(e)
-  }
+  return NextResponse.json({
+    election: {
+      id: election.id,
+      title: election.title,
+      status: election.status,
+      startDate: election.startDate,
+      endDate: election.endDate,
+      totalVoters: election.totalVoters,
+    },
+    results,
+    totalVotes,
+    turnout: election.totalVoters > 0
+      ? Math.round((totalVotes / election.totalVoters) * 10000) / 100
+      : null,
+    winner: election.status === "ENDED" ? winner : null,
+  });
 }

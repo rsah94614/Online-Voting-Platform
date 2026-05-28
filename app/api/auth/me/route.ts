@@ -1,28 +1,22 @@
 // app/api/auth/me/route.ts
-import { NextRequest } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getAuthUser } from '@/lib/auth'
-import { ok, unauthorized, notFound, handleApiError } from '@/lib/response'
+import { NextRequest, NextResponse } from "next/server";
+import { getUserFromRequest } from "@/lib/auth";
+import prisma from "@/lib/db";
 
 export async function GET(req: NextRequest) {
-  try {
-    const payload = await getAuthUser(req)
-    if (!payload) return unauthorized()
+  const token = await getUserFromRequest(req);
+  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const user = await prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: {
-        id: true, email: true, name: true, role: true,
-        phone: true, avatar: true, isVerified: true, nationality: true,
-        dateOfBirth: true, createdAt: true,
-        partyMembership: { include: { party: { select: { id: true, name: true, abbreviation: true, color: true } } } },
-        candidateProfile: { select: { id: true, status: true, electionId: true, partyId: true } },
-      },
-    })
-    if (!user) return notFound('User not found')
+  const user = await prisma.user.findUnique({
+    where: { id: token.sub },
+    select: {
+      id: true, email: true, name: true, role: true,
+      isApproved: true, isVerified: true, avatarUrl: true,
+      phone: true, createdAt: true,
+      candidate: { select: { id: true, isApproved: true, partyId: true } },
+    },
+  });
+  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    return ok(user)
-  } catch (e) {
-    return handleApiError(e)
-  }
+  return NextResponse.json({ user });
 }

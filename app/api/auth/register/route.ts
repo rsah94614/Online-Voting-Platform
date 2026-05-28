@@ -1,116 +1,73 @@
 // app/api/auth/register/route.ts
-import { z } from 'zod'
-import { Role } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
-import { hashPassword } from '@/lib/password'
-import { signToken, setAuthCookie } from '@/lib/auth'
-import { created, badRequest, conflict, handleApiError } from '@/lib/response'
+import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+import { z } from "zod";
+import prisma from "@/lib/db";
+import { signToken, setAuthCookie } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
+import { AuditAction, Role } from "@prisma/client";
 
 const schema = z.object({
-  email:       z.string().email(),
-  password:    z.string().min(8).regex(/[A-Z]/).regex(/[0-9]/).regex(/[^A-Za-z0-9]/),
-  name:        z.string().min(2),
-  phone:       z.string().optional(),
-  role:        z.enum(['VOTER', 'CANDIDATE', 'PARTY_ADMIN', 'ADMIN']).default('VOTER'),
-  nationality: z.string().optional(),
-  dateOfBirth: z.string().optional(),
-  // Voter extras
-  address:      z.string().optional(),
-  constituency: z.string().optional(),
-  // Candidate extras
-  electionId:  z.string().optional(),
-  partyId:     z.string().optional(),
-  biography:   z.string().optional(),
-  manifesto:   z.string().optional(),
-  // Party admin extras
-  partyName:          z.string().optional(),
-  partyAbbreviation:  z.string().optional(),
-  partyColor:         z.string().optional(),
-  partyDescription:   z.string().optional(),
-  // Admin auth code
-  adminCode: z.string().optional(),
-})
+  name: z.string().min(2).max(100),
+  email: z.string().email(),
+  password: z.string().min(8).regex(/[A-Z]/).regex(/[0-9]/),
+  role: z.enum(["VOTER", "CANDIDATE", "PARTY_ADMIN"]).default("VOTER"),
+  phone: z.string().optional(),
+});
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const body = schema.parse(await req.json())
+    const body = await req.json();
+    const data = schema.parse(body);
 
-    // Check existing
-    const existing = await prisma.user.findUnique({ where: { email: body.email.toLowerCase() } })
-    if (existing) return conflict('An account with this email already exists')
-
-    // Admin guard
-    if (body.role === 'ADMIN') {
-      if (body.adminCode !== process.env.ADMIN_REGISTRATION_CODE) {
-        return badRequest('Invalid admin authorization code')
-      }
+    const existing = await prisma.user.findUnique({ where: { email: data.email } });
+    if (existing) {
+      return NextResponse.json({ error: "Email already registered" }, { status: 409 });
     }
 
-    const password = await hashPassword(body.password)
+    const passwordHash = await bcrypt.hash(data.password, 12);
 
     const user = await prisma.user.create({
       data: {
-        email:       body.email.toLowerCase(),
-        name:        body.name,
-        password,
-        role:        body.role as Role,
-        phone:       body.phone,
-        nationality: body.nationality,
-        dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
-        isVerified:  body.role === 'VOTER', // voters auto-verified
+        email: data.email,
+        passwordHash,
+        name: data.name,
+        phone: data.phone,
+        role: data.role as Role,
+        // Voters auto-approved; others need admin approval
+        isApproved: data.role === "VOTER",
+        isVerified: false,
       },
-    })
+    });
 
-    // Role-specific setup
-    if (body.role === 'CANDIDATE' && body.electionId) {
-      await prisma.candidateProfile.create({
-        data: {
-          userId:     user.id,
-          electionId: body.electionId,
-          partyId:    body.partyId ?? null,
-          biography:  body.biography,
-          manifesto:  body.manifesto,
-        },
-      })
+    // If candidate, create candidate profile
+    if (data.role === "CANDIDATE") {
+      await prisma.candidate.create({ data: { userId: user.id } });
     }
 
-    if (body.role === 'PARTY_ADMIN' && body.partyName && body.partyAbbreviation) {
-      const party = await prisma.party.create({
-        data: {
-          name:         body.partyName,
-          abbreviation: body.partyAbbreviation,
-          color:        body.partyColor ?? '#00d4ff',
-          description:  body.partyDescription,
-        },
-      })
-      await prisma.partyMember.create({
-        data: { userId: user.id, partyId: party.id, role: 'ADMIN' },
-      })
+    await logAudit({
+      userId: user.id,
+      action: AuditAction.USER_REGISTER,
+      resource: "user",
+      resourceId: user.id,
+      details: { email: user.email, role: user.role },
+      req,
+    });
+
+    const token = await signToken({ sub: user.id, email: user.email, name: user.name, role: user.role });
+
+    const res = NextResponse.json({
+      user: { id: user.id, email: user.email, name: user.name, role: user.role, isApproved: user.isApproved },
+      requiresApproval: !user.isApproved,
+    }, { status: 201 });
+
+    setAuthCookie(res, token);
+    return res;
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json({ error: "Validation failed", issues: err.errors }, { status: 400 });
     }
-
-    if (body.role === 'VOTER') {
-      // If an active election exists, auto-register the voter
-      const activeElections = await prisma.election.findMany({
-        where: { status: { in: ['UPCOMING', 'LIVE'] } },
-        take: 5,
-      })
-      for (const el of activeElections) {
-        await prisma.voterRegistration.create({
-          data: { userId: user.id, electionId: el.id, isVerified: true, verifiedAt: new Date() },
-        }).catch(() => {})
-      }
-    }
-
-    const token = await signToken({ sub: user.id, email: user.email, name: user.name, role: user.role })
-    await setAuthCookie(token)
-
-    await prisma.auditLog.create({
-      data: { userId: user.id, action: 'USER_REGISTERED', entity: 'User', entityId: user.id },
-    })
-
-    const { password: _, ...safeUser } = user
-    return created({ user: safeUser, token }, 'Account created successfully')
-  } catch (e) {
-    return handleApiError(e)
+    console.error("[register]", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

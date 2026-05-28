@@ -1,49 +1,33 @@
-// app/api/elections/[id]/candidates/route.ts
-import { NextRequest } from 'next/server'
-import { CandidateStatus, Role } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
-import { getAuthUser } from '@/lib/auth'
-import { ok, unauthorized, notFound, handleApiError } from '@/lib/response'
+// app/api/candidates/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/db";
+import { getUserFromRequest } from "@/lib/auth";
 
-type Params = { params: Promise<{ id: string }> }
+export async function GET(req: NextRequest) {
+  const user = await getUserFromRequest(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-export async function GET(req: NextRequest, { params }: Params) {
-  try {
-    const user = await getAuthUser(req)
-    if (!user) return unauthorized()
+  const { searchParams } = req.nextUrl;
+  const approved = searchParams.get("approved");
+  const page = parseInt(searchParams.get("page") ?? "1");
+  const limit = 20;
 
-    const { id } = await params
-    const election = await prisma.election.findUnique({ where: { id } })
-    if (!election) return notFound()
+  const where = approved !== null ? { isApproved: approved === "true" } : {};
 
-    const { searchParams } = new URL(req.url)
-    const statusFilter = searchParams.get('status') as CandidateStatus | null
-
-    const candidates = await prisma.candidateProfile.findMany({
-      where: {
-        electionId: id,
-        ...(statusFilter ? { status: statusFilter } : {}),
-        // Non-admins only see approved candidates
-        ...(user.role !== Role.ADMIN ? { status: CandidateStatus.APPROVED } : {}),
-      },
+  const [candidates, total] = await Promise.all([
+    prisma.candidate.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { createdAt: "desc" },
       include: {
-        user:  { select: { id: true, name: true, email: true, avatar: true } },
-        party: { select: { id: true, name: true, abbreviation: true, color: true } },
-        _count: { select: { votes: true } },
+        user: { select: { id: true, name: true, email: true, avatarUrl: true, createdAt: true } },
+        party: { select: { name: true, abbreviation: true, color: true } },
+        nominations: { select: { electionId: true } },
       },
-      orderBy: { createdAt: 'asc' },
-    })
+    }),
+    prisma.candidate.count({ where }),
+  ]);
 
-    // Attach vote percentages
-    const totalVotes = await prisma.vote.count({ where: { electionId: id } })
-    const enriched = candidates.map((c) => ({
-      ...c,
-      voteCount:      c._count.votes,
-      votePercentage: totalVotes > 0 ? Math.round((c._count.votes / totalVotes) * 1000) / 10 : 0,
-    }))
-
-    return ok(enriched)
-  } catch (e) {
-    return handleApiError(e)
-  }
+  return NextResponse.json({ candidates, total });
 }

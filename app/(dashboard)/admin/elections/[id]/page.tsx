@@ -1,240 +1,221 @@
-'use client'
+"use client";
 // app/(dashboard)/admin/elections/[id]/page.tsx
 
-import { use } from 'react'
-import Link from 'next/link'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import DashboardHeader from '@/components/dashboard/DashboardHeader'
-import StatsCard from '@/components/dashboard/StatsCard'
-import { Card, CardHeader, StatusBadge, Btn, Progress, Avatar, PageLoader } from '@/components/dashboard/ui'
-import { VotexAreaChart, VotexBarChart } from '@/components/dashboard/charts/Charts'
-import toast from 'react-hot-toast'
+import { useParams, useRouter } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useElectionStream } from "@/hooks/useElectionStream";
+import toast from "react-hot-toast";
 
-const apiFetch = (url: string) => fetch(url, { credentials: 'include' }).then(r => r.json())
+const STATUS_STYLES: Record<string, string> = {
+  DRAFT:     "bg-slate-500/20 text-slate-400 border-slate-500/30",
+  UPCOMING:  "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  LIVE:      "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  ENDED:     "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  CANCELLED: "bg-red-500/20 text-red-400 border-red-500/30",
+};
 
-export default function ElectionDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
-  const qc = useQueryClient()
+const STATUS_TRANSITIONS: Record<string, { next: string; label: string; color: string }[]> = {
+  DRAFT:    [{ next: "UPCOMING", label: "Mark Upcoming", color: "amber" }, { next: "LIVE", label: "Launch Now", color: "emerald" }],
+  UPCOMING: [{ next: "LIVE", label: "Launch Now", color: "emerald" }, { next: "CANCELLED", label: "Cancel", color: "red" }],
+  LIVE:     [{ next: "ENDED", label: "End Election", color: "purple" }, { next: "CANCELLED", label: "Cancel", color: "red" }],
+  ENDED:    [],
+  CANCELLED:[],
+};
 
-  const { data: elData, isLoading: elLoading } = useQuery({
-    queryKey: ['election', id],
-    queryFn: () => apiFetch(`/api/elections/${id}`),
-  })
+export default function ElectionDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const qc = useQueryClient();
 
-  const { data: resData } = useQuery({
-    queryKey: ['election-results', id],
-    queryFn: () => apiFetch(`/api/elections/${id}/results`),
-    refetchInterval: (q) => {
-      const status = elData?.data?.status
-      return status === 'LIVE' ? 5000 : false
+  const { data, isLoading } = useQuery({
+    queryKey: ["election", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/elections/${id}`);
+      if (!res.ok) throw new Error("Not found");
+      return res.json();
     },
-    enabled: !!elData?.data,
-  })
+  });
 
-  const launchMutation = useMutation({
-    mutationFn: () => fetch(`/api/elections/${id}/launch`, { method: 'POST', credentials: 'include' }).then(r => r.json()),
-    onSuccess: (r) => {
-      if (r.success) { toast.success('🚀 Election launched!'); qc.invalidateQueries({ queryKey: ['election', id] }) }
-      else toast.error(r.error)
+  const { data: resultsData } = useQuery({
+    queryKey: ["election-results", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/elections/${id}/results`);
+      return res.json();
     },
-  })
+    enabled: !!id,
+  });
 
-  const closeMutation = useMutation({
-    mutationFn: () => fetch(`/api/elections/${id}/close`, { method: 'POST', credentials: 'include' }).then(r => r.json()),
-    onSuccess: (r) => {
-      if (r.success) { toast.success('Election closed'); qc.invalidateQueries({ queryKey: ['election', id] }) }
-      else toast.error(r.error)
+  const { data: liveData, connected } = useElectionStream(
+    data?.election?.status === "LIVE" ? id : null
+  );
+
+  const mutation = useMutation({
+    mutationFn: (status: string) =>
+      fetch(`/api/elections/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      }).then((r) => r.json()),
+    onSuccess: (_, status) => {
+      toast.success(`Election status updated to ${status}`);
+      qc.invalidateQueries({ queryKey: ["election", id] });
+      qc.invalidateQueries({ queryKey: ["election-results", id] });
     },
-  })
+    onError: () => toast.error("Update failed"),
+  });
 
-  if (elLoading) return (
-    <div className="flex flex-col min-h-screen">
-      <DashboardHeader title="Election Detail" />
-      <PageLoader />
-    </div>
-  )
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center h-64 text-slate-400">
+        <div className="animate-spin w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full mr-3" />
+        Loading...
+      </div>
+    );
+  }
 
-  const el  = elData?.data
-  const res = resData?.data
+  const election = data?.election;
+  if (!election) return <div className="p-6 text-slate-400">Election not found.</div>;
 
-  if (!el) return (
-    <div className="flex flex-col min-h-screen">
-      <DashboardHeader title="Election Not Found" />
-      <main className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-5xl mb-4">🗳️</div>
-          <p className="font-orb text-white font-bold">Election not found</p>
-          <Link href="/admin/elections"><Btn variant="outline" className="mt-4">← Back to Elections</Btn></Link>
-        </div>
-      </main>
-    </div>
-  )
-
-  const turnoutData = res?.turnoutByHour?.map((t: any) => ({
-    time:  new Date(t.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    votes: t.votes,
-  })) ?? []
-
-  const candidateBarData = res?.candidateResults?.map((c: any) => ({
-    name:  c.name.split(' ')[0],
-    votes: c.votes,
-    pct:   c.percentage,
-  })) ?? []
+  const displayData = liveData ?? resultsData;
+  const totalVotes = displayData?.totalVotes ?? election._count?.votes ?? 0;
+  const results = liveData?.candidates ?? resultsData?.results ?? [];
+  const transitions = STATUS_TRANSITIONS[election.status] ?? [];
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <DashboardHeader
-        title={el.title}
-        subtitle={`ID: ${el.id.slice(0, 12)} · Created by ${el.createdBy?.name}`}
-        actions={
-          <div className="flex gap-2">
-            {el.status === 'DRAFT' && (
-              <>
-                <Link href={`/admin/elections/${id}/configure`}>
-                  <Btn variant="outline" size="sm">⚙️ Configure</Btn>
-                </Link>
-                <Btn size="sm" loading={launchMutation.isPending} onClick={() => launchMutation.mutate()}>
-                  🚀 Launch
-                </Btn>
-              </>
-            )}
-            {el.status === 'LIVE' && (
-              <Btn variant="danger" size="sm" loading={closeMutation.isPending} onClick={() => closeMutation.mutate()}>
-                🔒 Close Election
-              </Btn>
+    <div className="p-6 space-y-6">
+      {/* Breadcrumb + Header */}
+      <div>
+        <button onClick={() => router.back()} className="text-xs text-slate-500 hover:text-slate-300 font-mono mb-2 block transition-colors">
+          ← Back to Elections
+        </button>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold text-white font-mono">{election.title}</h1>
+              <span className={`px-2.5 py-1 rounded-full text-xs font-mono border ${STATUS_STYLES[election.status]}`}>
+                {election.status}
+                {election.status === "LIVE" && connected && (
+                  <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+              </span>
+            </div>
+            <p className="text-sm text-slate-400 mt-1">{election.description}</p>
+          </div>
+          {/* Status actions */}
+          <div className="flex gap-2 flex-wrap">
+            {transitions.map((t) => (
+              <button
+                key={t.next}
+                onClick={() => mutation.mutate(t.next)}
+                disabled={mutation.isPending}
+                className={`px-4 py-2 rounded-lg text-sm font-mono border transition-all disabled:opacity-50 bg-${t.color}-500/10 border-${t.color}-500/30 text-${t.color}-400 hover:bg-${t.color}-500/20`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Meta grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[
+          { label: "Type", value: election.type },
+          { label: "Total Votes", value: totalVotes.toLocaleString(), accent: true },
+          { label: "Start", value: new Date(election.startDate).toLocaleString() },
+          { label: "End", value: new Date(election.endDate).toLocaleString() },
+        ].map((m) => (
+          <div key={m.label} className="bg-[#0d1421] border border-slate-700/30 rounded-xl p-4">
+            <div className={`text-lg font-mono font-bold ${m.accent ? "text-cyan-400" : "text-white"}`}>
+              {m.value}
+            </div>
+            <div className="text-xs text-slate-400 mt-1">{m.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Results */}
+      {results.length > 0 && (
+        <div className="bg-[#0d1421] border border-slate-700/30 rounded-xl p-6 space-y-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-mono text-cyan-400 uppercase tracking-wider">
+              {election.status === "LIVE" ? "Live Results" : "Final Results"}
+            </h2>
+            {connected && (
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs text-slate-400 font-mono">Live</span>
+              </div>
             )}
           </div>
-        }
-      />
 
-      <main className="flex-1 p-6 overflow-y-auto space-y-6">
+          <div className="space-y-4">
+            {results.map((r: { id?: string; name: string; partyColor?: string; party?: { color?: string } | string; votes: number; percentage: number }, i: number) => {
+              const color = r.partyColor ?? (typeof r.party === "object" ? r.party?.color : undefined) ?? "#00d4ff";
+              const isLeading = i === 0;
+              return (
+                <div key={r.id ?? r.name}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      {isLeading && election.status !== "LIVE" && (
+                        <span className="text-xs font-mono text-amber-400">👑</span>
+                      )}
+                      <span className="text-sm text-white font-medium">{r.name}</span>
+                      {typeof r.party === "string" && r.party !== "Independent" && (
+                        <span className="text-xs text-slate-500">· {r.party}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-mono text-slate-300">{r.votes.toLocaleString()}</span>
+                      <span className="text-sm font-mono font-bold" style={{ color }}>{r.percentage.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{ width: `${r.percentage}%`, backgroundColor: color }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-        {/* Status + Meta */}
-        <div className="flex flex-wrap items-center gap-4 p-4 bg-[#0e0e24] border border-[rgba(0,212,255,0.15)] rounded-xl">
-          <StatusBadge status={el.status} />
-          <span className="text-xs text-[#475569] font-mono">Type: {el.type}</span>
-          <span className="text-xs text-[#475569] font-mono">Method: {el.votingMethod?.replace('_', ' ')}</span>
-          <span className="text-xs text-[#475569] font-mono">
-            {new Date(el.startDate).toLocaleDateString()} → {new Date(el.endDate).toLocaleDateString()}
-          </span>
-          {el.status === 'LIVE' && (
-            <span className="ml-auto text-xs text-[#00ff88] font-mono flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00ff88] animate-pulse" />
-              LIVE — results updating every 5s
-            </span>
+          {displayData?.turnout !== undefined && displayData.turnout !== null && (
+            <div className="text-xs text-slate-500 font-mono pt-2 border-t border-slate-700/30">
+              Voter turnout: <span className="text-slate-300">{displayData.turnout.toFixed(1)}%</span>
+              {" "}· Total votes: <span className="text-slate-300">{totalVotes.toLocaleString()}</span>
+            </div>
           )}
         </div>
+      )}
 
-        {/* KPIs */}
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatsCard label="Registered Voters" value={(res?.totalVoters ?? el._count?.voterRegistrations ?? 0).toLocaleString()} icon="👥" accent="cyan" />
-          <StatsCard label="Votes Cast"         value={(res?.totalVotesCast ?? el._count?.votes ?? 0).toLocaleString()} icon="🗳️" accent="purple" />
-          <StatsCard label="Turnout"            value={`${res?.turnoutPercent ?? 0}%`} icon="📈" accent="green" />
-          <StatsCard label="Candidates"         value={el._count?.candidates ?? 0} icon="👤" accent="amber" />
-        </div>
-
-        {/* Candidate results */}
-        {res?.candidateResults?.length > 0 && (
-          <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-            {/* Bar chart */}
-            <Card className="xl:col-span-3">
-              <CardHeader title="Live Vote Distribution" subtitle="Per candidate" />
-              <div className="p-5">
-                <VotexBarChart data={candidateBarData} xKey="name"
-                  bars={[{ key: 'pct', color: 'cyan', name: 'Vote %' }]} height={220} />
+      {/* Candidate list */}
+      <div className="bg-[#0d1421] border border-slate-700/30 rounded-xl p-6">
+        <h2 className="text-sm font-mono text-cyan-400 uppercase tracking-wider mb-4">
+          Registered Candidates ({election.candidates?.length ?? 0})
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {(election.candidates ?? []).map((ec: { id: string; candidate: { user: { name: string }; party: { name: string; color: string } | null } }) => (
+            <div key={ec.id} className="flex items-center gap-3 p-3 bg-[#060b14] rounded-lg border border-slate-700/20">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                {ec.candidate.user.name.charAt(0)}
               </div>
-            </Card>
-
-            {/* Rankings */}
-            <Card className="xl:col-span-2">
-              <CardHeader title="Rankings" />
-              <div className="p-4 space-y-4">
-                {res.candidateResults.map((c: any, i: number) => (
-                  <div key={c.candidateId} className="flex items-center gap-3">
-                    <span className={`text-sm font-orb font-bold w-5 ${i === 0 ? 'text-[#f59e0b]' : 'text-[#475569]'}`}>
-                      #{i + 1}
-                    </span>
-                    <Avatar name={c.name} size={8}
-                      gradient={i === 0 ? 'from-[#00d4ff] to-[#7c3aed]' : 'from-[#475569] to-[#334155]'} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-sm font-semibold text-white truncate">{c.name}</span>
-                        <span className="text-sm font-orb font-bold text-[#00d4ff] ml-2">{c.percentage.toFixed(1)}%</span>
-                      </div>
-                      <Progress value={c.percentage} />
-                      <span className="text-[10px] text-[#475569] font-mono">{c.votes.toLocaleString()} votes</span>
-                    </div>
-                    {c.isLeading && (
-                      <span className="text-[10px] bg-[rgba(0,255,136,0.12)] text-[#00ff88] border border-[rgba(0,255,136,0.2)] px-1.5 py-0.5 rounded font-mono">
-                        LEADING
-                      </span>
-                    )}
-                  </div>
-                ))}
+              <div className="min-w-0">
+                <div className="text-sm text-white truncate">{ec.candidate.user.name}</div>
+                {ec.candidate.party && (
+                  <span
+                    className="text-xs font-mono"
+                    style={{ color: ec.candidate.party.color }}
+                  >
+                    {ec.candidate.party.name}
+                  </span>
+                )}
               </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Turnout chart */}
-        {turnoutData.length > 0 && (
-          <Card>
-            <CardHeader title="Hourly Turnout" subtitle="Vote flow over time" />
-            <div className="p-5">
-              <VotexAreaChart data={turnoutData} xKey="time"
-                lines={[{ key: 'votes', color: 'cyan', name: 'Votes per hour' }]} height={200} />
             </div>
-          </Card>
-        )}
-
-        {/* Candidates table */}
-        <Card>
-          <CardHeader
-            title={`Candidates (${el.candidates?.length ?? 0})`}
-            action={
-              <Link href={`/admin/candidates?electionId=${id}`}>
-                <Btn variant="ghost" size="sm">Manage →</Btn>
-              </Link>
-            }
-          />
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead><tr className="bg-[#0a0a1a]">
-                {['Candidate', 'Party', 'Status', 'Votes', '%', 'Actions'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs text-[#475569] font-mono uppercase">{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>
-                {(el.candidates ?? []).map((c: any) => {
-                  const result = res?.candidateResults?.find((r: any) => r.candidateId === c.id)
-                  return (
-                    <tr key={c.id} className="border-t border-[rgba(0,212,255,0.06)]">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <Avatar name={c.user?.name ?? '?'} size={7} />
-                          <span className="text-sm font-semibold text-white">{c.user?.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-[#94a3b8]">{c.party?.name ?? 'Independent'}</td>
-                      <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
-                      <td className="px-4 py-3 text-sm font-mono text-[#00d4ff]">{(result?.votes ?? 0).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-sm font-orb text-[#7c3aed]">{result?.percentage.toFixed(1) ?? '0.0'}%</td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1">
-                          <Link href={`/admin/candidates?id=${c.id}`}>
-                            <Btn variant="ghost" size="sm">View</Btn>
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-
-      </main>
+          ))}
+        </div>
+      </div>
     </div>
-  )
+  );
 }

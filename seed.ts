@@ -1,272 +1,362 @@
-// prisma/seed.ts
-import { PrismaClient, Role, ElectionStatus, ElectionType, VotingMethod, CandidateStatus, PartyStatus } from '@prisma/client'
-import bcrypt from 'bcryptjs'
+// seed.ts - Run with: npx prisma db seed
+import { PrismaClient, Role, ElectionType, ElectionStatus, AuditAction } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding database...')
+  console.log("🌱 Seeding VOTEX database...");
 
-  // ── Clean up ──────────────────────────────────────────────────────────────
-  await prisma.vote.deleteMany()
-  await prisma.auditLog.deleteMany()
-  await prisma.voterRegistration.deleteMany()
-  await prisma.candidateProfile.deleteMany()
-  await prisma.constituency.deleteMany()
-  await prisma.election.deleteMany()
-  await prisma.partyMember.deleteMany()
-  await prisma.party.deleteMany()
-  await prisma.session.deleteMany()
-  await prisma.otpCode.deleteMany()
-  await prisma.user.deleteMany()
+  const DEMO_PASSWORD = await bcrypt.hash("Demo@1234", 12);
 
-  const HASH = await bcrypt.hash('Demo@1234', 12)
-
-  // ── Admin ─────────────────────────────────────────────────────────────────
-  const admin = await prisma.user.create({
-    data: {
-      email: 'admin@votex.io',
-      name: 'System Administrator',
-      password: HASH,
+  // ── Admin ──────────────────────────────────────────────────────────────────
+  const admin = await prisma.user.upsert({
+    where: { email: "admin@votex.io" },
+    update: {},
+    create: {
+      email: "admin@votex.io",
+      passwordHash: DEMO_PASSWORD,
+      name: "System Admin",
       role: Role.ADMIN,
       isVerified: true,
-      nationality: 'Indian',
+      isApproved: true,
     },
-  })
+  });
 
-  // ── Parties ───────────────────────────────────────────────────────────────
-  const [npParty, laParty, ufParty, gfParty] = await Promise.all([
-    prisma.party.create({
-      data: {
-        name: 'National Progress Party',
-        abbreviation: 'NPP',
-        color: '#00d4ff',
-        description: 'A progressive party focused on technology, education, and sustainable growth.',
-        ideology: ['Progressive', 'Social Democracy', 'Tech Policy'],
-        foundedYear: 1998,
-        website: 'https://npp.example.com',
-        status: PartyStatus.ACTIVE,
-      },
-    }),
-    prisma.party.create({
-      data: {
-        name: 'Liberty Alliance',
-        abbreviation: 'LA',
-        color: '#7c3aed',
-        description: 'Champions of constitutional rights, economic liberalism, and judicial reform.',
-        ideology: ['Liberalism', 'Constitutional Rights', 'Free Market'],
-        foundedYear: 2002,
-        website: 'https://la.example.com',
-        status: PartyStatus.ACTIVE,
-      },
-    }),
-    prisma.party.create({
-      data: {
-        name: 'United Front',
-        abbreviation: 'UF',
-        color: '#ff2d6a',
-        description: 'Coalition for housing reform, social equity, and workers rights.',
-        ideology: ['Social Justice', 'Labour Rights', 'Housing Reform'],
-        foundedYear: 2010,
-        status: PartyStatus.ACTIVE,
-      },
-    }),
-    prisma.party.create({
-      data: {
-        name: 'Green Future Party',
-        abbreviation: 'GFP',
-        color: '#00ff88',
-        description: 'Environmental science meets bold policy for a sustainable planet.',
-        ideology: ['Environmentalism', 'Net-Zero', 'Clean Energy'],
-        foundedYear: 2015,
-        status: PartyStatus.ACTIVE,
-      },
-    }),
-  ])
-
-  // ── Candidate Users ────────────────────────────────────────────────────────
-  const [uAria, uMarcus, uSofia, uJames] = await Promise.all([
-    prisma.user.create({ data: { email: 'aria@votex.io',   name: 'Aria Chen',    password: HASH, role: Role.CANDIDATE, isVerified: true } }),
-    prisma.user.create({ data: { email: 'marcus@votex.io', name: 'Marcus Reed',  password: HASH, role: Role.CANDIDATE, isVerified: true } }),
-    prisma.user.create({ data: { email: 'sofia@votex.io',  name: 'Sofia Vega',   password: HASH, role: Role.CANDIDATE, isVerified: true } }),
-    prisma.user.create({ data: { email: 'james@votex.io',  name: 'James Okafor', password: HASH, role: Role.CANDIDATE, isVerified: true } }),
-  ])
-
-  // ── Party Admins ──────────────────────────────────────────────────────────
-  const partyAdminUser = await prisma.user.create({
-    data: { email: 'party@votex.io', name: 'Ray Nakamura', password: HASH, role: Role.PARTY_ADMIN, isVerified: true },
-  })
-  await prisma.partyMember.create({ data: { userId: partyAdminUser.id, partyId: npParty.id, role: 'ADMIN' } })
-
-  // ── Voter Users ───────────────────────────────────────────────────────────
-  const voter = await prisma.user.create({
-    data: { email: 'voter@votex.io', name: 'Alex Johnson', password: HASH, role: Role.VOTER, isVerified: true },
-  })
-
-  // Create extra demo voters
-  const extraVoterData = Array.from({ length: 20 }, (_, i) => ({
-    email: `voter${i + 2}@votex.io`,
-    name: `Demo Voter ${i + 2}`,
-    password: HASH,
-    role: Role.VOTER as Role,
-    isVerified: true,
-  }))
-  await prisma.user.createMany({ data: extraVoterData })
-
-  // ── Main Election ─────────────────────────────────────────────────────────
-  const now = new Date()
-  const election = await prisma.election.create({
-    data: {
-      title: 'National Presidential Election 2024',
-      description: 'The quadrennial presidential election to elect the next President of the Republic.',
-      type: ElectionType.PRESIDENTIAL,
-      status: ElectionStatus.LIVE,
-      votingMethod: VotingMethod.FPTP,
-      startDate: new Date(now.getTime() - 2 * 60 * 60 * 1000), // 2h ago
-      endDate:   new Date(now.getTime() + 4 * 60 * 60 * 1000), // 4h from now
-      registrationDeadline: new Date(now.getTime() - 24 * 60 * 60 * 1000),
-      anonymizeVoters: true,
-      launchedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-      createdById: admin.id,
+  // ── Parties ────────────────────────────────────────────────────────────────
+  const partyA = await prisma.party.upsert({
+    where: { name: "National Progress Alliance" },
+    update: {},
+    create: {
+      name: "National Progress Alliance",
+      abbreviation: "NPA",
+      color: "#00d4ff",
+      description: "Forward-thinking governance for the digital age.",
+      isActive: true,
     },
-  })
+  });
 
-  // Upcoming election
-  const upcomingElection = await prisma.election.create({
-    data: {
-      title: 'Senate District 7 By-Election 2024',
-      description: 'By-election to fill the vacant Senate seat for District 7.',
-      type: ElectionType.PARLIAMENTARY,
-      status: ElectionStatus.UPCOMING,
-      votingMethod: VotingMethod.FPTP,
-      startDate: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000),
-      endDate:   new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000),
-      createdById: admin.id,
+  const partyB = await prisma.party.upsert({
+    where: { name: "Liberty First Coalition" },
+    update: {},
+    create: {
+      name: "Liberty First Coalition",
+      abbreviation: "LFC",
+      color: "#7c3aed",
+      description: "Individual freedoms and limited government.",
+      isActive: true,
     },
-  })
+  });
 
-  // Draft election
-  await prisma.election.create({
-    data: {
-      title: 'University Student Council Elections 2025',
-      description: 'Annual student council elections for all departments.',
-      type: ElectionType.UNIVERSITY,
-      status: ElectionStatus.DRAFT,
-      votingMethod: VotingMethod.RANKED_CHOICE,
-      startDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
-      endDate:   new Date(now.getTime() + 31 * 24 * 60 * 60 * 1000),
-      createdById: admin.id,
+  const partyC = await prisma.party.upsert({
+    where: { name: "Green Futures Party" },
+    update: {},
+    create: {
+      name: "Green Futures Party",
+      abbreviation: "GFP",
+      color: "#10b981",
+      description: "Sustainable development and environmental stewardship.",
+      isActive: true,
     },
-  })
+  });
 
-  // ── Candidates for main election ─────────────────────────────────────────
-  const [cAria, cMarcus, cSofia, cJames] = await Promise.all([
-    prisma.candidateProfile.create({
-      data: {
-        userId: uAria.id,
-        electionId: election.id,
-        partyId: npParty.id,
-        status: CandidateStatus.APPROVED,
-        biography: 'Former Minister of Digital Affairs, PhD in Public Policy from MIT. 22 years in democratic governance with a focus on technology-driven civic reform.',
-        education: JSON.stringify([{ institution: 'MIT', degree: 'PhD', field: 'Public Policy', year: '2002' }, { institution: 'IIT Delhi', degree: 'B.Tech', field: 'Computer Science', year: '1998' }]),
-        achievements: ['Digital India Award 2019', 'UN Governance Fellowship 2015', '3x Best Legislator Award'],
-        manifesto: 'A digitally empowered, equitable India where every citizen has access to quality healthcare, education, and economic opportunities through smart governance and technology-first policy.',
-        keyPolicies: JSON.stringify([
-          { title: 'Digital Healthcare for All', summary: 'Universal digital health records and telemedicine access for rural areas', category: 'Healthcare' },
-          { title: 'Education 2030', summary: '100% school enrollment with AI-powered personalized learning', category: 'Education' },
-        ]),
-        assetDeclarations: JSON.stringify([{ type: 'Property', description: 'Residential Apartment, Delhi', value: 12000000, currency: 'INR' }]),
-        socialLinks: JSON.stringify({ twitter: '@aria_chen_np', linkedin: 'aria-chen' }),
-        constituency: 'New Delhi Central',
-      },
-    }),
-    prisma.candidateProfile.create({
-      data: {
-        userId: uMarcus.id,
-        electionId: election.id,
-        partyId: laParty.id,
-        status: CandidateStatus.APPROVED,
-        biography: 'Senator for 12 years, Harvard Law graduate. Champion of constitutional rights, economic liberalism, and judicial reform.',
-        education: JSON.stringify([{ institution: 'Harvard Law School', degree: 'JD', field: 'Law', year: '2004' }]),
-        achievements: ['Best Senator Award 2020', 'Civil Rights Commission Member', 'Author of Liberty Bill 2018'],
-        manifesto: 'A free, fair, and just society built on constitutional principles, economic freedom, and an independent judiciary that serves every citizen equally.',
-        keyPolicies: JSON.stringify([
-          { title: 'Judicial Independence Act', summary: 'Ensure judicial appointments free from political influence', category: 'Legal' },
-          { title: 'Economic Freedom Charter', summary: 'Reduce regulatory burden on small businesses', category: 'Economy' },
-        ]),
-        assetDeclarations: JSON.stringify([{ type: 'Investments', description: 'Stock portfolio', value: 5000000, currency: 'INR' }]),
-        constituency: 'Mumbai South',
-      },
-    }),
-    prisma.candidateProfile.create({
-      data: {
-        userId: uSofia.id,
-        electionId: election.id,
-        partyId: ufParty.id,
-        status: CandidateStatus.APPROVED,
-        biography: 'Grassroots activist turned national leader. Two-term city mayor, renowned for housing reform and social equity programs.',
-        achievements: ['Housing Reform Award 2021', 'Forbes 40 Under 40', '200,000 families helped through Affordable Housing Initiative'],
-        manifesto: 'Fair housing for every family. Living wages for every worker. Quality public services in every neighborhood. The United Front believes prosperity must be shared.',
-        constituency: 'Chennai Central',
-      },
-    }),
-    prisma.candidateProfile.create({
-      data: {
-        userId: uJames.id,
-        electionId: election.id,
-        partyId: gfParty.id,
-        status: CandidateStatus.APPROVED,
-        biography: 'Environmental scientist and first-time presidential candidate with a bold agenda for net-zero by 2035.',
-        achievements: ['UN Climate Award 2022', 'Founder — Clean India Initiative', 'TED Speaker: "The Green Revolution"'],
-        manifesto: 'The planet cannot wait. We commit to net-zero by 2035, 100% renewable energy by 2030, and a Green Jobs Guarantee for every displaced worker.',
-        constituency: 'Bangalore South',
-      },
-    }),
-  ])
+  // ── Party Admin ────────────────────────────────────────────────────────────
+  const partyAdminUser = await prisma.user.upsert({
+    where: { email: "party@votex.io" },
+    update: {},
+    create: {
+      email: "party@votex.io",
+      passwordHash: DEMO_PASSWORD,
+      name: "Alex Morgan",
+      role: Role.PARTY_ADMIN,
+      isVerified: true,
+      isApproved: true,
+    },
+  });
+  await prisma.partyAdmin.upsert({
+    where: { userId: partyAdminUser.id },
+    update: {},
+    create: { userId: partyAdminUser.id, partyId: partyA.id },
+  });
 
-  // ── Voter Registrations ───────────────────────────────────────────────────
-  await prisma.voterRegistration.create({
-    data: { userId: voter.id, electionId: election.id, isVerified: true, verifiedAt: new Date() },
-  })
+  // ── Candidates ─────────────────────────────────────────────────────────────
+  const candidateUser1 = await prisma.user.upsert({
+    where: { email: "candidate@votex.io" },
+    update: {},
+    create: {
+      email: "candidate@votex.io",
+      passwordHash: DEMO_PASSWORD,
+      name: "Jordan Rivera",
+      role: Role.CANDIDATE,
+      isVerified: true,
+      isApproved: true,
+    },
+  });
+  const candidate1 = await prisma.candidate.upsert({
+    where: { userId: candidateUser1.id },
+    update: {},
+    create: {
+      userId: candidateUser1.id,
+      partyId: partyA.id,
+      bio: "Experienced policy maker with 12 years in public service.",
+      manifesto: "Digital infrastructure, healthcare reform, and education access for all.",
+      isApproved: true,
+    },
+  });
 
-  // ── Votes ─────────────────────────────────────────────────────────────────
-  const allUsers = await prisma.user.findMany({ where: { role: Role.VOTER } })
-  const candidateIds = [cAria.id, cMarcus.id, cSofia.id, cJames.id]
-  const weights = [0.342, 0.287, 0.221, 0.15] // vote distribution
+  const candidateUser2 = await prisma.user.upsert({
+    where: { email: "candidate2@votex.io" },
+    update: {},
+    create: {
+      email: "candidate2@votex.io",
+      passwordHash: DEMO_PASSWORD,
+      name: "Sam Westbrook",
+      role: Role.CANDIDATE,
+      isVerified: true,
+      isApproved: true,
+    },
+  });
+  const candidate2 = await prisma.candidate.upsert({
+    where: { userId: candidateUser2.id },
+    update: {},
+    create: {
+      userId: candidateUser2.id,
+      partyId: partyB.id,
+      bio: "Entrepreneur and fiscal conservative.",
+      manifesto: "Lower taxes, deregulation, and free-market solutions.",
+      isApproved: true,
+    },
+  });
 
-  for (const u of allUsers.slice(0, 20)) {
-    const rand = Math.random()
-    let cumulative = 0
-    let chosen = candidateIds[0]
-    for (let i = 0; i < weights.length; i++) {
-      cumulative += weights[i]
-      if (rand <= cumulative) { chosen = candidateIds[i]; break }
-    }
-    await prisma.vote.create({
-      data: {
-        electionId: election.id,
-        candidateId: chosen,
-        voterId: u.id,
-        receipt: `RCPT-${u.id.slice(0, 8).toUpperCase()}`,
+  const candidateUser3 = await prisma.user.upsert({
+    where: { email: "candidate3@votex.io" },
+    update: {},
+    create: {
+      email: "candidate3@votex.io",
+      passwordHash: DEMO_PASSWORD,
+      name: "Taylor Chen",
+      role: Role.CANDIDATE,
+      isVerified: true,
+      isApproved: true,
+    },
+  });
+  const candidate3 = await prisma.candidate.upsert({
+    where: { userId: candidateUser3.id },
+    update: {},
+    create: {
+      userId: candidateUser3.id,
+      partyId: partyC.id,
+      bio: "Environmental scientist and community organizer.",
+      manifesto: "100% renewable energy, climate resilience, and green jobs.",
+      isApproved: true,
+    },
+  });
+
+  // Pending candidate (not yet approved)
+  const pendingUser = await prisma.user.upsert({
+    where: { email: "pending@votex.io" },
+    update: {},
+    create: {
+      email: "pending@votex.io",
+      passwordHash: DEMO_PASSWORD,
+      name: "Dana Park",
+      role: Role.CANDIDATE,
+      isVerified: true,
+      isApproved: false,
+    },
+  });
+  await prisma.candidate.upsert({
+    where: { userId: pendingUser.id },
+    update: {},
+    create: {
+      userId: pendingUser.id,
+      partyId: partyA.id,
+      bio: "Civil rights attorney running for Senate.",
+      isApproved: false,
+    },
+  });
+
+  // ── Voters ─────────────────────────────────────────────────────────────────
+  const voter = await prisma.user.upsert({
+    where: { email: "voter@votex.io" },
+    update: {},
+    create: {
+      email: "voter@votex.io",
+      passwordHash: DEMO_PASSWORD,
+      name: "Chris Nakamura",
+      role: Role.VOTER,
+      isVerified: true,
+      isApproved: true,
+    },
+  });
+
+  // Create some extra voters
+  for (let i = 1; i <= 20; i++) {
+    await prisma.user.upsert({
+      where: { email: `voter${i}@votex.io` },
+      update: {},
+      create: {
+        email: `voter${i}@votex.io`,
+        passwordHash: DEMO_PASSWORD,
+        name: `Voter ${i}`,
+        role: Role.VOTER,
+        isVerified: true,
+        isApproved: true,
       },
-    }).catch(() => {}) // ignore duplicates
+    });
   }
 
-  // ── Audit Logs ────────────────────────────────────────────────────────────
-  await prisma.auditLog.createMany({
-    data: [
-      { userId: admin.id, electionId: election.id, action: 'ELECTION_CREATED', entity: 'Election', entityId: election.id },
-      { userId: admin.id, electionId: election.id, action: 'ELECTION_LAUNCHED', entity: 'Election', entityId: election.id },
-      { userId: admin.id, action: 'CANDIDATE_APPROVED', entity: 'Candidate', entityId: cAria.id },
-    ],
-  })
+  // ── Elections ──────────────────────────────────────────────────────────────
+  const now = new Date();
+  const liveElection = await prisma.election.upsert({
+    where: { id: "election-live-001" },
+    update: {},
+    create: {
+      id: "election-live-001",
+      title: "2026 Presidential Election",
+      description: "National presidential election. All registered voters are eligible.",
+      type: ElectionType.PRESIDENTIAL,
+      status: ElectionStatus.LIVE,
+      startDate: new Date(now.getTime() - 2 * 60 * 60 * 1000), // 2h ago
+      endDate: new Date(now.getTime() + 22 * 60 * 60 * 1000),  // 22h from now
+      totalVoters: 21,
+    },
+  });
 
-  console.log('✅ Seeding complete!')
-  console.log('\n📋 Demo Accounts:')
-  console.log('  Admin:      admin@votex.io     / Demo@1234')
-  console.log('  Candidate:  aria@votex.io      / Demo@1234')
-  console.log('  Party:      party@votex.io     / Demo@1234')
-  console.log('  Voter:      voter@votex.io     / Demo@1234')
+  const upcomingElection = await prisma.election.upsert({
+    where: { id: "election-upcoming-001" },
+    update: {},
+    create: {
+      id: "election-upcoming-001",
+      title: "Senate District 7 By-Election",
+      description: "Special by-election for the vacant Senate seat in District 7.",
+      type: ElectionType.SENATE,
+      status: ElectionStatus.UPCOMING,
+      startDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+      endDate: new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000),
+      totalVoters: 0,
+    },
+  });
+
+  const endedElection = await prisma.election.upsert({
+    where: { id: "election-ended-001" },
+    update: {},
+    create: {
+      id: "election-ended-001",
+      title: "Municipal Council 2025",
+      description: "City municipal council elections.",
+      type: ElectionType.MUNICIPAL,
+      status: ElectionStatus.ENDED,
+      startDate: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+      endDate: new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000),
+      totalVoters: 850,
+    },
+  });
+
+  // ── Election Candidates ────────────────────────────────────────────────────
+  const ec1 = await prisma.electionCandidate.upsert({
+    where: { electionId_candidateId: { electionId: liveElection.id, candidateId: candidate1.id } },
+    update: {},
+    create: { electionId: liveElection.id, candidateId: candidate1.id },
+  });
+  const ec2 = await prisma.electionCandidate.upsert({
+    where: { electionId_candidateId: { electionId: liveElection.id, candidateId: candidate2.id } },
+    update: {},
+    create: { electionId: liveElection.id, candidateId: candidate2.id },
+  });
+  const ec3 = await prisma.electionCandidate.upsert({
+    where: { electionId_candidateId: { electionId: liveElection.id, candidateId: candidate3.id } },
+    update: {},
+    create: { electionId: liveElection.id, candidateId: candidate3.id },
+  });
+
+  // Ended election candidates
+  const ec4 = await prisma.electionCandidate.upsert({
+    where: { electionId_candidateId: { electionId: endedElection.id, candidateId: candidate1.id } },
+    update: {},
+    create: { electionId: endedElection.id, candidateId: candidate1.id },
+  });
+  const ec5 = await prisma.electionCandidate.upsert({
+    where: { electionId_candidateId: { electionId: endedElection.id, candidateId: candidate2.id } },
+    update: {},
+    create: { electionId: endedElection.id, candidateId: candidate2.id },
+  });
+
+  // ── Sample Votes (live election) ───────────────────────────────────────────
+  const allVoters = await prisma.user.findMany({ where: { role: Role.VOTER, isApproved: true } });
+  const ecIds = [ec1.id, ec2.id, ec3.id];
+  
+  for (let i = 0; i < Math.min(allVoters.length - 1, 15); i++) {
+    const v = allVoters[i];
+    const pick = ecIds[i % 3];
+    try {
+      await prisma.vote.upsert({
+        where: { voterId_electionId: { voterId: v.id, electionId: liveElection.id } },
+        update: {},
+        create: {
+          voterId: v.id,
+          electionId: liveElection.id,
+          electionCandidateId: pick,
+          receiptHash: `hash-${v.id}-${liveElection.id}`,
+        },
+      });
+    } catch {}
+  }
+
+  // Ended election votes
+  const endedVoters = allVoters.slice(0, 8);
+  for (let i = 0; i < endedVoters.length; i++) {
+    const v = endedVoters[i];
+    const pick = i < 5 ? ec4.id : ec5.id;
+    try {
+      await prisma.vote.upsert({
+        where: { voterId_electionId: { voterId: v.id, electionId: endedElection.id } },
+        update: {},
+        create: {
+          voterId: v.id,
+          electionId: endedElection.id,
+          electionCandidateId: pick,
+          receiptHash: `hash-ended-${v.id}`,
+        },
+      });
+    } catch {}
+  }
+
+  // ── Audit Logs ─────────────────────────────────────────────────────────────
+  const auditEntries = [
+    { userId: admin.id, action: AuditAction.ELECTION_CREATED, resource: "election", resourceId: liveElection.id, details: { title: liveElection.title } },
+    { userId: admin.id, action: AuditAction.ELECTION_LAUNCHED, resource: "election", resourceId: liveElection.id, details: {} },
+    { userId: admin.id, action: AuditAction.CANDIDATE_APPROVED, resource: "candidate", resourceId: candidate1.id, details: { name: "Jordan Rivera" } },
+    { userId: admin.id, action: AuditAction.CANDIDATE_APPROVED, resource: "candidate", resourceId: candidate2.id, details: { name: "Sam Westbrook" } },
+    { userId: voter.id, action: AuditAction.USER_LOGIN, resource: "auth", details: {} },
+    { userId: voter.id, action: AuditAction.VOTE_CAST, resource: "vote", resourceId: liveElection.id, details: { electionTitle: liveElection.title } },
+  ];
+
+  for (const entry of auditEntries) {
+    await prisma.auditLog.create({ data: entry });
+  }
+
+  // ── System Settings ────────────────────────────────────────────────────────
+  const settings = [
+    { key: "platform_name", value: { text: "VOTEX" } },
+    { key: "registration_open", value: { enabled: true } },
+    { key: "email_verification_required", value: { enabled: true } },
+    { key: "voter_approval_required", value: { enabled: false } },
+    { key: "candidate_approval_required", value: { enabled: true } },
+    { key: "results_public", value: { enabled: true } },
+    { key: "maintenance_mode", value: { enabled: false } },
+  ];
+  for (const s of settings) {
+    await prisma.systemSettings.upsert({ where: { key: s.key }, update: {}, create: s });
+  }
+
+  console.log("✅ Seed complete!");
+  console.log(`   Admin:       admin@votex.io / Demo@1234`);
+  console.log(`   Voter:       voter@votex.io / Demo@1234`);
+  console.log(`   Candidate:   candidate@votex.io / Demo@1234`);
+  console.log(`   Party Admin: party@votex.io / Demo@1234`);
 }
 
-main().catch(console.error).finally(() => prisma.$disconnect())
+main()
+  .catch((e) => { console.error(e); process.exit(1); })
+  .finally(() => prisma.$disconnect());

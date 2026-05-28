@@ -1,87 +1,79 @@
-// lib/auth.ts
-import { SignJWT, jwtVerify } from 'jose'
-import { cookies } from 'next/headers'
-import { NextRequest } from 'next/server'
-import type { Role } from '@prisma/client'
+// lib/auth.ts - JWT helpers using jose
+import { SignJWT, jwtVerify } from "jose";
+import { cookies } from "next/headers";
+import { NextRequest } from "next/server";
+import { Role } from "@prisma/client";
 
 const SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? 'fallback-secret-change-in-production-min-32-chars'
-)
-
-const COOKIE_NAME = 'votex_token'
-const EXPIRES_IN  = '7d'
+  process.env.JWT_SECRET || "CHANGE_ME_IN_PRODUCTION_32chars!!"
+);
+const COOKIE_NAME = "votex_token";
+const EXPIRY = "7d";
 
 export interface JWTPayload {
-  sub: string       // userId
-  email: string
-  name: string
-  role: Role
-  iat?: number
-  exp?: number
+  sub: string;       // user id
+  email: string;
+  name: string;
+  role: Role;
+  iat?: number;
+  exp?: number;
 }
 
-// ── Sign ──────────────────────────────────────────────────────────────────────
-export async function signToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): Promise<string> {
+// Sign a new JWT
+export async function signToken(payload: Omit<JWTPayload, "iat" | "exp">) {
   return new SignJWT({ ...payload })
-    .setProtectedHeader({ alg: 'HS256' })
+    .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(EXPIRES_IN)
-    .sign(SECRET)
+    .setExpirationTime(EXPIRY)
+    .sign(SECRET);
 }
 
-// ── Verify ────────────────────────────────────────────────────────────────────
+// Verify and decode a JWT string
 export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, SECRET)
-    return payload as unknown as JWTPayload
+    const { payload } = await jwtVerify(token, SECRET);
+    return payload as unknown as JWTPayload;
   } catch {
-    return null
+    return null;
   }
 }
 
-// ── Set cookie ────────────────────────────────────────────────────────────────
-export async function setAuthCookie(token: string) {
-  const cookieStore = await cookies()
-  cookieStore.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-    path: '/',
-  })
+// Get token from cookie jar (server component / route handler)
+export async function getTokenFromCookies(): Promise<string | null> {
+  const jar = await cookies();
+  return jar.get(COOKIE_NAME)?.value ?? null;
 }
 
-// ── Clear cookie ──────────────────────────────────────────────────────────────
-export async function clearAuthCookie() {
-  const cookieStore = await cookies()
-  cookieStore.delete(COOKIE_NAME)
-}
-
-// ── Get current user from request ─────────────────────────────────────────────
-export async function getAuthUser(req: NextRequest): Promise<JWTPayload | null> {
-  // 1. Try cookie
-  const cookieToken = req.cookies.get(COOKIE_NAME)?.value
-  if (cookieToken) return verifyToken(cookieToken)
-
-  // 2. Try Authorization header
-  const authHeader = req.headers.get('authorization')
-  if (authHeader?.startsWith('Bearer ')) {
-    return verifyToken(authHeader.slice(7))
-  }
-
-  return null
-}
-
-// ── Get current user from server component ────────────────────────────────────
+// Get current user from cookie (server component / route handler)
 export async function getCurrentUser(): Promise<JWTPayload | null> {
-  const cookieStore = await cookies()
-  const token = cookieStore.get(COOKIE_NAME)?.value
-  if (!token) return null
-  return verifyToken(token)
+  const token = await getTokenFromCookies();
+  if (!token) return null;
+  return verifyToken(token);
 }
 
-// ── Role guards ───────────────────────────────────────────────────────────────
-export function requireRole(user: JWTPayload | null, ...roles: Role[]): boolean {
-  if (!user) return false
-  return roles.includes(user.role)
+// Get current user from a request object (middleware / route handler)
+export async function getUserFromRequest(req: NextRequest): Promise<JWTPayload | null> {
+  const token =
+    req.cookies.get(COOKIE_NAME)?.value ||
+    req.headers.get("authorization")?.replace("Bearer ", "");
+  if (!token) return null;
+  return verifyToken(token);
 }
+
+// Set auth cookie in a Response
+export function setAuthCookie(res: Response, token: string) {
+  res.headers.append(
+    "Set-Cookie",
+    `${COOKIE_NAME}=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${7 * 24 * 60 * 60}`
+  );
+}
+
+// Clear auth cookie
+export function clearAuthCookie(res: Response) {
+  res.headers.append(
+    "Set-Cookie",
+    `${COOKIE_NAME}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`
+  );
+}
+
+export { COOKIE_NAME };
