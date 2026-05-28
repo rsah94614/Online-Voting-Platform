@@ -1,0 +1,215 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  CANDIDATE
+  PARTY_ADMIN
+  VOTER
+}
+
+enum ElectionStatus {
+  DRAFT
+  UPCOMING
+  LIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ElectionType {
+  PRESIDENTIAL
+  PARLIAMENTARY
+  UNIVERSITY
+  CORPORATE
+  OTHER
+}
+
+enum VotingMethod {
+  FPTP
+  RANKED_CHOICE
+  APPROVAL
+}
+
+enum CandidateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum PartyStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String
+  password      String
+  role          Role      @default(VOTER)
+  isVerified    Boolean   @default(false)
+  nationality   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions      Session[]
+  otpCodes      OtpCode[]
+  registrations VoterRegistration[]
+  votes         Vote[]
+  auditLogs     AuditLog[]
+  partyMembers  PartyMember[]
+  candidate     CandidateProfile?
+  electionsCreated Election[] @relation("ElectionCreator")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model OtpCode {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Party {
+  id           String      @id @default(uuid())
+  name         String
+  abbreviation String      @unique
+  color        String
+  logoUrl      String?
+  description  String?
+  ideology     String[]
+  foundedYear  Int?
+  website      String?
+  status       PartyStatus @default(ACTIVE)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  members      PartyMember[]
+  candidates   CandidateProfile[]
+}
+
+model PartyMember {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  partyId   String
+  party     Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  role      String
+  joinedAt  DateTime @default(now())
+
+  @@unique([userId, partyId])
+}
+
+model Election {
+  id                  String         @id @default(uuid())
+  title               String
+  description         String?
+  type                ElectionType
+  status              ElectionStatus @default(DRAFT)
+  votingMethod        VotingMethod   @default(FPTP)
+  startDate           DateTime
+  endDate             DateTime
+  registrationDeadline DateTime?
+  anonymizeVoters     Boolean        @default(true)
+  launchedAt          DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  createdById         String
+  creator             User           @relation("ElectionCreator", fields: [createdById], references: [id])
+
+  constituencies      Constituency[]
+  candidates          CandidateProfile[]
+  registrations       VoterRegistration[]
+  votes               Vote[]
+  auditLogs           AuditLog[]
+}
+
+model Constituency {
+  id         String   @id @default(uuid())
+  name       String
+  electionId String
+  election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+}
+
+model CandidateProfile {
+  id                String          @id @default(uuid())
+  userId            String          @unique
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  electionId        String
+  election          Election        @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  partyId           String?
+  party             Party?          @relation(fields: [partyId], references: [id])
+  status            CandidateStatus @default(PENDING)
+  biography         String?
+  education         String?         // JSON string
+  achievements      String[]
+  manifesto         String?
+  keyPolicies       String?         // JSON string
+  assetDeclarations String?         // JSON string
+  socialLinks       String?         // JSON string
+  constituency      String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  votes             Vote[]
+}
+
+model VoterRegistration {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  electionId String
+  election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  isVerified Boolean  @default(false)
+  verifiedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, electionId])
+}
+
+model Vote {
+  id          String   @id @default(uuid())
+  electionId  String
+  election    Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidateId String
+  candidate   CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  voterId     String
+  voter       User     @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  receipt     String   @unique
+  createdAt   DateTime @default(now())
+
+  @@unique([electionId, voterId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  electionId String?
+  election   Election? @relation(fields: [electionId], references: [id])
+  action     String
+  entity     String
+  entityId   String
+  createdAt  DateTime @default(now())
+}

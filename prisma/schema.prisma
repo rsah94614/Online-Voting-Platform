@@ -1,0 +1,345 @@
+// prisma/schema.prisma
+// Database: PostgreSQL via Neon.tech (serverless, free tier — https://neon.tech)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  CANDIDATE
+  PARTY_ADMIN
+  VOTER
+}
+
+enum ElectionStatus {
+  DRAFT
+  UPCOMING
+  LIVE
+  PAUSED
+  ENDED
+  CANCELLED
+}
+
+enum ElectionType {
+  PRESIDENTIAL
+  PARLIAMENTARY
+  CORPORATE
+  UNIVERSITY
+  COMMUNITY
+  ORGANIZATIONAL
+  REFERENDUM
+  CUSTOM
+}
+
+enum VotingMethod {
+  FPTP
+  RANKED_CHOICE
+  APPROVAL
+  WEIGHTED
+  MULTI_SEAT
+}
+
+enum ResultDisclosure {
+  IMMEDIATE
+  AFTER_CLOSE
+  MANUAL
+}
+
+enum CandidateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DISQUALIFIED
+}
+
+enum PartyStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  name        String
+  phone       String?
+  password    String
+  role        Role      @default(VOTER)
+  isVerified  Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  avatar      String?
+  nationality String?
+  dateOfBirth DateTime?
+  address     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  candidateProfile   CandidateProfile?
+  partyMembership    PartyMember?
+  voterRegistrations VoterRegistration[]
+  votes              Vote[]
+  sessions           Session[]
+  auditLogs          AuditLog[]
+  createdElections   Election[]          @relation("ElectionCreator")
+  otpCodes           OtpCode[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("sessions")
+}
+
+model OtpCode {
+  id        String    @id @default(cuid())
+  userId    String
+  code      String
+  purpose   String    // "email_verify" | "login" | "password_reset"
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("otp_codes")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PARTY
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Party {
+  id           String      @id @default(cuid())
+  name         String      @unique
+  abbreviation String      @unique
+  color        String      @default("#00d4ff")
+  logo         String?
+  description  String?
+  ideology     String[]
+  foundedYear  Int?
+  website      String?
+  status       PartyStatus @default(PENDING)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  members    PartyMember[]
+  candidates CandidateProfile[]
+
+  @@index([status])
+  @@map("parties")
+}
+
+model PartyMember {
+  id       String   @id @default(cuid())
+  userId   String   @unique
+  partyId  String
+  role     String   @default("MEMBER") // "ADMIN" | "MEMBER"
+  joinedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  party Party @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@map("party_members")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ELECTION
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Election {
+  id                   String           @id @default(cuid())
+  title                String
+  description          String
+  type                 ElectionType     @default(CUSTOM)
+  status               ElectionStatus   @default(DRAFT)
+  votingMethod         VotingMethod     @default(FPTP)
+  resultDisclosure     ResultDisclosure @default(AFTER_CLOSE)
+  startDate            DateTime
+  endDate              DateTime
+  registrationDeadline DateTime?
+  allowSplitVoting     Boolean          @default(false)
+  requirePhotoId       Boolean          @default(false)
+  anonymizeVoters      Boolean          @default(true)
+  maxCandidates        Int?
+  maxVoters            Int?
+  rounds               Int              @default(1)
+  launchedAt           DateTime?
+  endedAt              DateTime?
+  createdById          String
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  createdBy          User               @relation("ElectionCreator", fields: [createdById], references: [id])
+  candidates         CandidateProfile[]
+  voterRegistrations VoterRegistration[]
+  votes              Vote[]
+  constituencies     Constituency[]
+  auditLogs          AuditLog[]
+
+  @@index([status])
+  @@index([createdById])
+  @@map("elections")
+}
+
+model Constituency {
+  id         String   @id @default(cuid())
+  electionId String
+  name       String
+  seats      Int      @default(1)
+  createdAt  DateTime @default(now())
+
+  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  @@index([electionId])
+  @@map("constituencies")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CANDIDATE PROFILE
+// ─────────────────────────────────────────────────────────────────────────────
+
+model CandidateProfile {
+  id           String          @id @default(cuid())
+  userId       String          @unique
+  electionId   String
+  partyId      String?
+  status       CandidateStatus @default(PENDING)
+  rejectedNote String?
+
+  // Personal
+  photo        String?
+  constituency String?
+
+  // Background (JSON arrays)
+  biography        String?
+  education        Json     @default("[]")
+  workExperience   Json     @default("[]")
+  politicalHistory Json     @default("[]")
+  achievements     String[] @default([])
+
+  // Platform
+  manifesto   String?
+  keyPolicies Json    @default("[]")
+
+  // Financial Transparency
+  assetDeclarations   Json @default("[]")
+  fundingDeclarations Json @default("[]")
+  totalDeclaredAssets Float @default(0)
+
+  // Online Presence
+  website     String?
+  socialLinks Json    @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  party    Party?   @relation(fields: [partyId], references: [id])
+  votes    Vote[]
+
+  @@index([electionId])
+  @@index([status])
+  @@map("candidate_profiles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VOTER REGISTRATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+model VoterRegistration {
+  id           String    @id @default(cuid())
+  userId       String
+  electionId   String
+  isVerified   Boolean   @default(false)
+  verifiedAt   DateTime?
+  constituency String?
+  registeredAt DateTime  @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, electionId])
+  @@index([electionId])
+  @@index([userId])
+  @@map("voter_registrations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VOTE — anonymised; voter identity hashed for ZKP compliance
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Vote {
+  id               String   @id @default(cuid())
+  electionId       String
+  candidateId      String
+  voterId          String   // real userId — kept for audit; hash in public results
+  receipt          String   @unique @default(cuid())
+  encryptedPayload String?
+  ipHash           String?
+  castAt           DateTime @default(now())
+
+  election  Election         @relation(fields: [electionId], references: [id])
+  candidate CandidateProfile @relation(fields: [candidateId], references: [id])
+  voter     User             @relation(fields: [voterId], references: [id])
+
+  @@unique([voterId, electionId])
+  @@index([electionId])
+  @@index([candidateId])
+  @@map("votes")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIT LOG
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String    @id @default(cuid())
+  userId     String?
+  electionId String?
+  action     String
+  entity     String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  severity   String    @default("INFO") // "INFO" | "WARN" | "ERROR" | "CRITICAL"
+  createdAt  DateTime  @default(now())
+
+  user     User?     @relation(fields: [userId], references: [id])
+  election Election? @relation(fields: [electionId], references: [id])
+
+  @@index([userId])
+  @@index([electionId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

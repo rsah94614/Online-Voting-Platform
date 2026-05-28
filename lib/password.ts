@@ -1,0 +1,16 @@
+// lib/password.ts
+import bcrypt from 'bcryptjs'
+
+const ROUNDS = 12
+
+export async function hashPassword(plain: string): Promise<string> {
+  return bcrypt.hash(plain, ROUNDS)
+}
+
+export async function verifyPassword(plain: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(plain, hash)
+}
+
+export function generateOtp(length = 6): string {
+  return Array.from({ length }, () => Math.floor(Math.random() * 10)).join('')
+}
