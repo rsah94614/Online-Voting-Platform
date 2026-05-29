@@ -49,10 +49,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Your account is not approved for voting" }, { status: 403 });
     }
 
-    // Generate deterministic receipt hash (does NOT reveal who they voted for)
+    // Generate an anonymous receipt hash (decoupled from precise timestamp to prevent timing correlation)
+    const randomSalt = crypto.randomBytes(16).toString("hex");
     const receiptHash = crypto
       .createHash("sha256")
-      .update(`${user.sub}:${electionId}:${Date.now()}:${process.env.JWT_SECRET ?? "secret"}`)
+      .update(`${user.sub}:${electionId}:${randomSalt}:${process.env.JWT_SECRET ?? "secret"}`)
       .digest("hex");
 
     const vote = await prisma.vote.create({
@@ -87,14 +88,7 @@ export async function POST(req: NextRequest) {
       type: "vote_update",
       electionId,
       totalVotes,
-      candidates: updatedCandidates.map((c) => ({
-        id: c.id,
-        name: c.candidate.user.name,
-        party: c.candidate.party?.name ?? "Independent",
-        partyColor: c.candidate.party?.color ?? "#888",
-        votes: c._count.votes,
-        percentage: totalVotes > 0 ? Math.round((c._count.votes / totalVotes) * 10000) / 100 : 0,
-      })),
+      candidates: [], // Deliberately hidden during LIVE election
       timestamp: Date.now(),
     });
 

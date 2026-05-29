@@ -24,6 +24,9 @@ const schema = z.object({
   anonymizeVoters:      z.boolean(),
   maxCandidates:        z.coerce.number().optional().or(z.literal('')),
   maxVoters:            z.coerce.number().optional().or(z.literal('')),
+  eligibilityType:      z.enum(['OPEN', 'DOMAIN', 'WHITELIST']).default('OPEN'),
+  allowedDomains:       z.string().optional(),
+  whitelistEmails:      z.string().optional(),
 })
 type FormData = z.infer<typeof schema>
 
@@ -45,10 +48,18 @@ export default function ConfigureElectionPage({ params }: { params: Promise<{ id
 
   const { register, handleSubmit, reset, watch, formState: { errors, isDirty } } = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: {
+      eligibilityType: 'OPEN',
+      allowedDomains: '',
+      whitelistEmails: '',
+    }
   })
+
+  const watchEligibility = watch('eligibilityType')
 
   useEffect(() => {
     if (el) {
+      const settings = typeof el.settings === 'object' && el.settings !== null ? el.settings : {};
       reset({
         title:                el.title,
         description:          el.description,
@@ -62,12 +73,15 @@ export default function ConfigureElectionPage({ params }: { params: Promise<{ id
         anonymizeVoters:      el.anonymizeVoters,
         maxCandidates:        el.maxCandidates ?? '',
         maxVoters:            el.maxVoters     ?? '',
+        eligibilityType:      settings.eligibilityType || 'OPEN',
+        allowedDomains:       settings.allowedDomains?.join(', ') || '',
+        whitelistEmails:      settings.whitelistEmails?.join('\n') || '',
       })
     }
   }, [el, reset])
 
   const updateMutation = useMutation({
-    mutationFn: (body: Partial<FormData>) =>
+    mutationFn: (body: any) =>
       fetch(`/api/elections/${id}`, {
         method: 'PATCH', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -91,6 +105,10 @@ export default function ConfigureElectionPage({ params }: { params: Promise<{ id
   })
 
   const onSubmit = (data: FormData) => {
+    // Process domains and emails into arrays
+    const allowedDomains = data.allowedDomains?.split(',').map(d => d.trim()).filter(Boolean) || []
+    const whitelistEmails = data.whitelistEmails?.split(/[\n,]/).map(e => e.trim()).filter(Boolean) || []
+
     const body = {
       ...data,
       startDate: new Date(data.startDate).toISOString(),
@@ -98,7 +116,18 @@ export default function ConfigureElectionPage({ params }: { params: Promise<{ id
       ...(data.registrationDeadline ? { registrationDeadline: new Date(data.registrationDeadline).toISOString() } : {}),
       maxCandidates: data.maxCandidates ? Number(data.maxCandidates) : undefined,
       maxVoters:     data.maxVoters     ? Number(data.maxVoters)     : undefined,
+      settings: {
+        ...(el?.settings && typeof el.settings === 'object' ? el.settings : {}),
+        eligibilityType: data.eligibilityType,
+        allowedDomains,
+        whitelistEmails,
+      }
     }
+    // Remove the flat fields so they don't break the prisma update if they aren't schema fields
+    delete (body as any).eligibilityType;
+    delete (body as any).allowedDomains;
+    delete (body as any).whitelistEmails;
+
     updateMutation.mutate(body)
   }
 
@@ -149,6 +178,32 @@ export default function ConfigureElectionPage({ params }: { params: Promise<{ id
                 <Field label="Description" error={errors.description?.message}>
                   <textarea {...register('description')} rows={4} className={textareaCls} />
                 </Field>
+              </div>
+            </Card>
+
+            {/* Voter Eligibility */}
+            <Card>
+              <CardHeader title="Voter Eligibility & Access" />
+              <div className="p-6 space-y-4">
+                <Field label="Who can join this election?" error={errors.eligibilityType?.message}>
+                  <select {...register('eligibilityType')} disabled={isLive} className={selectCls}>
+                    <option value="OPEN">Open Access (Anyone with the code)</option>
+                    <option value="DOMAIN">Domain Restricted (Specific email domains)</option>
+                    <option value="WHITELIST">Whitelist (Specific email addresses)</option>
+                  </select>
+                </Field>
+
+                {watchEligibility === 'DOMAIN' && (
+                  <Field label="Allowed Email Domains" hint="Comma separated (e.g., votex.io, mycompany.com)">
+                    <input {...register('allowedDomains')} disabled={isLive} placeholder="example.com" className={inputCls} />
+                  </Field>
+                )}
+
+                {watchEligibility === 'WHITELIST' && (
+                  <Field label="Whitelisted Emails" hint="Enter one email per line or comma separated">
+                    <textarea {...register('whitelistEmails')} disabled={isLive} rows={4} placeholder="voter1@example.com&#10;voter2@example.com" className={textareaCls} />
+                  </Field>
+                )}
               </div>
             </Card>
 

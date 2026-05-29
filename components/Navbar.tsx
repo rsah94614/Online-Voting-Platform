@@ -40,18 +40,19 @@ export default function Navbar() {
         <a href="#candidates" className="text-[#94a3b8] hover:text-[#00d4ff] transition-colors text-sm font-medium tracking-wider">Candidates</a>
         <a href="#results" className="text-[#94a3b8] hover:text-[#00d4ff] transition-colors text-sm font-medium tracking-wider">Results</a>
         <a href="#how-it-works" className="text-[#94a3b8] hover:text-[#00d4ff] transition-colors text-sm font-medium tracking-wider">How It Works</a>
+        <Link href="/verify" className="text-[#94a3b8] hover:text-[#00d4ff] transition-colors text-sm font-medium tracking-wider">Verify</Link>
         <a href="#pricing" className="text-[#94a3b8] hover:text-[#00d4ff] transition-colors text-sm font-medium tracking-wider">Pricing</a>
       </div>
 
       <div className="flex items-center gap-3">
-        <Link href="/login">
+        <a href="mailto:admin@votex.io">
           <button className="px-[22px] py-2.5 rounded-lg font-semibold text-sm tracking-wider border border-[rgba(0,212,255,0.18)] text-[#94a3b8] hover:border-[#00d4ff] hover:text-[#00d4ff] hover:shadow-[0_0_20px_rgba(0,212,255,0.1)] transition-all">
-            Sign In
+            Contact Sales
           </button>
-        </Link>
-        <Link href="/register">
+        </a>
+        <Link href="/login">
           <button className="px-[22px] py-2.5 rounded-lg font-semibold text-sm tracking-wider bg-gradient-to-r from-[#00d4ff] to-[#7c3aed] text-white shadow-[0_0_30px_rgba(0,212,255,0.25)] hover:shadow-[0_0_40px_rgba(0,212,255,0.5)] transition-all">
-            Launch Election →
+            Access Platform →
           </button>
         </Link>
       </div>

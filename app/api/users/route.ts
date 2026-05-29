@@ -16,7 +16,8 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("q") ?? "";
   const limit = 20;
 
-  const where = {
+  const where: any = {
+    adminId: user.sub, // Multi-tenant isolation
     ...(role ? { role } : {}),
     ...(search ? {
       OR: [
@@ -59,6 +60,12 @@ export async function PATCH(req: NextRequest) {
   const data: Record<string, unknown> = {};
   for (const k of allowed) {
     if (k in updates) data[k] = updates[k];
+  }
+
+  // Verify ownership
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target || (target as any).adminId !== user.sub) {
+    return NextResponse.json({ error: "Forbidden or Not Found" }, { status: 403 });
   }
 
   const updated = await prisma.user.update({

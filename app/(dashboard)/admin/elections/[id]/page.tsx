@@ -64,6 +64,34 @@ export default function ElectionDetailPage() {
     onError: () => toast.error("Update failed"),
   });
 
+  const exportToCsv = () => {
+    const results = liveData?.candidates ?? resultsData?.results ?? [];
+    const rows = [
+      ["Candidate", "Party", "Votes", "Percentage"],
+      ...results.map((r: any) => [
+        r.name,
+        r.party && r.party !== 'Independent' ? (typeof r.party === 'object' ? r.party.name : r.party) : 'Independent',
+        r.votes,
+        r.percentage.toFixed(1) + "%"
+      ])
+    ];
+    const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `votex-results-${data?.election?.searchCode || id}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const copyPublicLink = () => {
+    if (!data?.election?.searchCode) return;
+    const url = `${window.location.origin}/verify?type=election&code=${data.election.searchCode}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Public link copied to clipboard");
+  };
+
   if (isLoading) {
     return (
       <div className="p-6 flex items-center justify-center h-64 text-slate-400">
@@ -82,9 +110,9 @@ export default function ElectionDetailPage() {
   const transitions = STATUS_TRANSITIONS[election.status] ?? [];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 print:p-0 print:m-0 print:space-y-4">
       {/* Breadcrumb + Header */}
-      <div>
+      <div className="print:hidden">
         <button onClick={() => router.back()} className="text-xs text-slate-500 hover:text-slate-300 font-mono mb-2 block transition-colors">
           ← Back to Elections
         </button>
@@ -133,6 +161,43 @@ export default function ElectionDetailPage() {
           </div>
         ))}
       </div>
+
+      {/* Results Dashboard & Export (Visible only when ended) */}
+      {election.status === "ENDED" && results.length > 0 && (
+        <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-xl p-5 sm:p-6 print:border-none print:bg-none print:p-0">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-2xl">🏆</span>
+                <h2 className="text-xl font-bold text-white font-mono">Winner Declared</h2>
+              </div>
+              <p className="text-sm text-purple-300">
+                <strong className="text-white text-base">{results[0].name}</strong> has won the election with {results[0].votes.toLocaleString()} votes ({results[0].percentage.toFixed(1)}%).
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 print:hidden">
+              <button 
+                onClick={exportToCsv}
+                className="px-4 py-2 bg-[#060b14] border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-mono font-bold hover:bg-cyan-500/10 transition-colors"
+              >
+                📥 Export CSV
+              </button>
+              <button 
+                onClick={() => window.print()}
+                className="px-4 py-2 bg-[#060b14] border border-emerald-500/30 text-emerald-400 rounded-lg text-xs font-mono font-bold hover:bg-emerald-500/10 transition-colors"
+              >
+                🖨️ Print PDF
+              </button>
+              <button 
+                onClick={copyPublicLink}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-mono font-bold transition-colors"
+              >
+                🔗 Public Link
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Results */}
       {results.length > 0 && (
@@ -191,7 +256,7 @@ export default function ElectionDetailPage() {
       )}
 
       {/* Candidate list */}
-      <div className="bg-[#0d1421] border border-slate-700/30 rounded-xl p-6">
+      <div className="bg-[#0d1421] border border-slate-700/30 rounded-xl p-6 print:hidden">
         <h2 className="text-sm font-mono text-cyan-400 uppercase tracking-wider mb-4">
           Registered Candidates ({election.candidates?.length ?? 0})
         </h2>

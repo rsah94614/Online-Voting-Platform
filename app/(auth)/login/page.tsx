@@ -196,13 +196,16 @@ export default function LoginPage() {
             ))}
           </div>
 
-          {/* Register link */}
-          <p className="text-center text-xs text-[#475569] mt-6">
-            New to VOTEX?{' '}
-            <Link href="/register" className="text-[#00d4ff] hover:underline font-semibold">
-              Create an account
-            </Link>
-          </p>
+          {/* Links */}
+          <div className="mt-8 text-center">
+            <p className="text-xs text-[#94a3b8]">
+              Don&apos;t have an admin account?{' '}
+              <Link href="/register" className="text-[#00d4ff] hover:underline font-semibold">
+                Sign up
+              </Link>
+            </p>
+          </div>
+
         </div>
 
         {/* Security notice */}

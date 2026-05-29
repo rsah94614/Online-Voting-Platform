@@ -58,9 +58,9 @@ export default function Hero({ stats: dynamicStats }: { stats?: HeroStats }) {
       </p>
 
       <div className="flex gap-4 flex-wrap justify-center mb-12 fade-in stagger-3">
-        <Link href="/register">
+        <Link href="/login">
           <button className="px-8 py-3.5 rounded-lg font-bold text-base tracking-wider bg-gradient-to-r from-[#00d4ff] to-[#7c3aed] text-white shadow-[0_0_30px_rgba(0,212,255,0.25)] hover:shadow-[0_0_40px_rgba(0,212,255,0.5)] transition-all">
-            🚀 Start Free Election
+            🚀 Access Platform
           </button>
         </Link>
         <a href="#how-it-works">

@@ -4,7 +4,8 @@ import { z } from "zod";
 import prisma from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { AuditAction, ElectionStatus, ElectionType, Prisma } from "@prisma/client";
+import { AuditAction, ElectionStatus, ElectionType, Prisma, Role } from "@prisma/client";
+import crypto from "crypto";
 
 const createSchema = z.object({
   title: z.string().min(5).max(200),
@@ -18,14 +19,31 @@ const createSchema = z.object({
 
 // GET /api/elections - list elections
 export async function GET(req: NextRequest) {
+  const user = await getUserFromRequest(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Auto-transition elections based on dates (UPCOMING→LIVE, LIVE→ENDED)
+  try {
+    const { transitionElections } = await import("@/lib/transitions");
+    await transitionElections();
+  } catch (e) {
+    console.error("[elections GET] transition error:", e);
+  }
+
   const { searchParams } = req.nextUrl;
   const status = searchParams.get("status") as ElectionStatus | null;
   const page = parseInt(searchParams.get("page") ?? "1");
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "20"), 100);
 
-  const where = status ? { status } : {};
+  // If user is VOTER, only show elections they are enrolled in
+  const where: any = status ? { status } : {};
+  if (user.role === Role.VOTER) {
+    where.enrolledVoters = { some: { id: user.sub } };
+  } else if (user.role === Role.ADMIN) {
+    where.adminId = user.sub; // Multi-tenant isolation
+  }
 
-  const [elections, total] = await Promise.all([
+  const [electionsData, total] = await Promise.all([
     prisma.election.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -45,6 +63,18 @@ export async function GET(req: NextRequest) {
     }),
     prisma.election.count({ where }),
   ]);
+
+  // Strip candidate counts if the election is LIVE and user is not ADMIN
+  const elections = electionsData.map(election => {
+    if (election.status !== ElectionStatus.ENDED && user.role !== Role.ADMIN) {
+      // Hide counts
+      election.candidates = election.candidates.map(c => ({
+        ...c,
+        _count: { votes: 0 } // Hide real votes
+      }));
+    }
+    return election;
+  });
 
   return NextResponse.json({ elections, total, page, pages: Math.ceil(total / limit) });
 }
@@ -68,26 +98,31 @@ export async function POST(req: NextRequest) {
     const startDate = new Date(data.startDate);
     const status: ElectionStatus = startDate > now ? ElectionStatus.UPCOMING : ElectionStatus.DRAFT;
 
+    // Generate a 6-character unique search code
+    const searchCode = crypto.randomBytes(3).toString("hex").toUpperCase();
+
     const election = await prisma.election.create({
       data: {
         title: data.title,
         description: data.description,
         type: data.type,
         status,
+        searchCode,
         startDate: startDate,
         endDate: new Date(data.endDate),
+        adminId: user.sub, // Multi-tenant isolation
         settings: data.settings !== undefined ? (data.settings as Prisma.InputJsonValue) : undefined,
         candidates: data.candidateIds?.length
           ? { create: data.candidateIds.map((id) => ({ candidateId: id })) }
           : undefined,
-      },
+      } as any,
       include: { candidates: { include: { candidate: true } } },
     });
 
     await logAudit({
       userId: user.sub, action: AuditAction.ELECTION_CREATED,
       resource: "election", resourceId: election.id,
-      details: { title: election.title }, req,
+      details: { title: election.title, searchCode: (election as any).searchCode }, req,
     });
 
     return NextResponse.json({ election }, { status: 201 });

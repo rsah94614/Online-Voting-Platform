@@ -7,12 +7,29 @@ import { Toaster } from 'react-hot-toast'
 export const metadata: Metadata = {
   title: 'VOTEX — Next-Gen Election Platform',
   description: 'Enterprise-grade election management platform. Secure, transparent, scalable — from college polls to national elections.',
+  manifest: '/manifest.json',
+  themeColor: '#060611',
+  appleWebApp: {
+    title: 'VOTEX',
+    statusBarStyle: 'black-translucent',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js');
+                });
+              }
+            `,
+          }}
+        />
         <QueryProvider>
           <ScrollObserver />
           <div className="grid-bg" />

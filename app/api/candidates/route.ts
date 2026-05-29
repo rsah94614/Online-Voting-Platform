@@ -12,7 +12,10 @@ export async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get("page") ?? "1");
   const limit = 20;
 
-  const where = approved !== null ? { isApproved: approved === "true" } : {};
+  const where: any = approved !== null ? { isApproved: approved === "true" } : {};
+  if (user.role === "ADMIN") {
+    where.user = { adminId: user.sub }; // Multi-tenant isolation
+  }
 
   const [candidates, total] = await Promise.all([
     prisma.candidate.findMany({

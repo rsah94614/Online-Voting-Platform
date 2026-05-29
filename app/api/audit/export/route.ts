@@ -1,4 +1,4 @@
-// app/api/audit/route.ts
+// app/api/audit/export/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
@@ -17,8 +17,6 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search");
   const startDate = searchParams.get("startDate");
   const endDate = searchParams.get("endDate");
-  const page = parseInt(searchParams.get("page") ?? "1");
-  const limit = Math.min(parseInt(searchParams.get("limit") ?? "50"), 200);
 
   const where: any = {
     ...(action ? { action } : {}),
@@ -44,16 +42,31 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const [logs, total] = await Promise.all([
-    prisma.auditLog.findMany({
-      where,
-      skip: (page - 1) * limit,
-      take: limit,
-      orderBy: { createdAt: "desc" },
-      include: { user: { select: { name: true, email: true, role: true } } },
-    }),
-    prisma.auditLog.count({ where }),
+  const logs = await prisma.auditLog.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: 10000, // Safe limit for memory
+    include: { user: { select: { name: true, email: true, role: true } } },
+  });
+
+  const header = ["ID", "Timestamp", "Action", "Resource", "ResourceID", "User Name", "User Email", "IP Address"];
+  const rows = logs.map(log => [
+    log.id,
+    log.createdAt.toISOString(),
+    log.action,
+    log.resource,
+    log.resourceId || "",
+    log.user?.name || "",
+    log.user?.email || "",
+    log.ipAddress || "",
   ]);
 
-  return NextResponse.json({ logs, total, pages: Math.ceil(total / limit) });
+  const csvContent = [header, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+
+  return new NextResponse(csvContent, {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="votex_audit_export_${new Date().toISOString().split('T')[0]}.csv"`,
+    },
+  });
 }

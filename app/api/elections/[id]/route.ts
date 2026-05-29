@@ -19,8 +19,9 @@ const updateSchema = z.object({
 }).strict();
 
 // GET /api/elections/[id]
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
   const { id } = await params;
+  const user = await getUserFromRequest(req);
   const election = await prisma.election.findUnique({
     where: { id },
     include: {
@@ -40,6 +41,12 @@ export async function GET(_req: NextRequest, { params }: Params) {
   });
 
   if (!election) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  
+  // Multi-tenant check: if Admin, must own this election
+  if (user?.role === "ADMIN" && (election as any).adminId !== user.sub) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   return NextResponse.json({ election });
 }
 
@@ -54,6 +61,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   try {
     const body = await req.json();
     const data = updateSchema.parse(body);
+
+    const election = await prisma.election.findUnique({ where: { id } });
+    if (!election) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if ((election as any).adminId !== user.sub) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { candidateIds, ...rest } = data;
 
@@ -102,6 +113,8 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   // Prevent deleting LIVE elections
   const election = await prisma.election.findUnique({ where: { id } });
   if (!election) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if ((election as any).adminId !== user.sub) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  
   if (election.status === ElectionStatus.LIVE) {
     return NextResponse.json({ error: "Cannot delete a live election. End it first." }, { status: 409 });
   }

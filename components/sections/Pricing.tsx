@@ -18,7 +18,7 @@ export default function Pricing() {
         { check: false, text: 'Biometric auth' },
       ],
       buttonText: 'Get Started Free',
-      buttonLink: '/register',
+      buttonLink: '/login',
       buttonStyle: 'border border-[rgba(0,212,255,0.18)] text-[#94a3b8] hover:border-[#00d4ff] hover:text-[#00d4ff]',
     },
     {
@@ -37,7 +37,7 @@ export default function Pricing() {
         { check: true, text: 'API access + webhooks' },
       ],
       buttonText: 'Start Free Trial',
-      buttonLink: '/register',
+      buttonLink: '/login',
       buttonStyle: 'bg-gradient-to-r from-[#00d4ff] to-[#7c3aed] text-white shadow-[0_0_30px_rgba(0,212,255,0.25)] hover:shadow-[0_0_40px_rgba(0,212,255,0.5)]',
       featured: true,
     },
@@ -81,10 +81,10 @@ export default function Pricing() {
         {plans.map((plan) => (
           <div
             key={plan.tier}
-            className={`bg-[rgba(0,212,255,0.04)] border rounded-2xl p-8 relative overflow-hidden fade-in transition-all hover:-translate-y-1 ${
+            className={`bg-[rgba(0,212,255,0.04)] border rounded-2xl p-8 relative fade-in transition-all hover:-translate-y-1 ${
               plan.featured
                 ? 'lg:scale-105 border-[rgba(0,212,255,0.5)] shadow-[0_0_60px_rgba(0,212,255,0.1),inset_0_0_60px_rgba(0,212,255,0.02)]'
-                : 'border-[rgba(0,212,255,0.18)] hover:border-[rgba(0,212,255,0.4)]'
+                : 'border-[rgba(0,212,255,0.18)] hover:border-[rgba(0,212,255,0.4)] overflow-hidden'
             }`}
           >
             {plan.featured && (

@@ -12,7 +12,10 @@ export async function GET(req: NextRequest) {
     if (!user) return unauthorized()
 
     const parties = await prisma.party.findMany({
-      where: { isActive: user.role === Role.ADMIN ? undefined : true },
+      where: { 
+        isActive: user.role === Role.ADMIN ? undefined : true,
+        adminId: user.role === Role.ADMIN ? user.sub : undefined, // Multi-tenant isolation
+      } as any,
       include: {
         _count: { select: { candidates: true } },
       },
@@ -50,7 +53,7 @@ export async function POST(req: NextRequest) {
     // Destructure properties not present in the active Prisma schema
     const { ideology, foundedYear, ...allowedData } = body
 
-    const party = await prisma.party.create({ data: allowedData })
+    const party = await prisma.party.create({ data: { ...allowedData, adminId: user.sub } as any })
     return created(party, 'Party registered successfully')
   } catch (e) {
     return handleApiError(e)

@@ -41,6 +41,7 @@ enum ElectionStatus {
 enum AuditAction {
   USER_REGISTER
   USER_LOGIN
+  LOGIN_FAILED
   USER_LOGOUT
   USER_APPROVED
   USER_SUSPENDED
@@ -72,11 +73,19 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  adminId      String?
+  admin        User?        @relation("AdminUsers", fields: [adminId], references: [id])
+  managedUsers User[]       @relation("AdminUsers")
+
+  managedParties   Party[]    @relation("AdminParties")
+  managedElections Election[] @relation("AdminElections")
+
   candidate  Candidate?
   partyAdmin PartyAdmin?
   votes      Vote[]
   auditLogs  AuditLog[]
   otpCodes   OtpCode[]
+  enrolledElections Election[] @relation("ElectionVoters")
 
   @@map("users")
 }
@@ -93,6 +102,9 @@ model Party {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  adminId      String?
+  admin        User?    @relation("AdminParties", fields: [adminId], references: [id])
 
   candidates  Candidate[]
   partyAdmins PartyAdmin[]
@@ -140,11 +152,16 @@ model Election {
   endDate     DateTime
   settings    Json?
   totalVoters Int            @default(0)
+  searchCode  String?        @unique
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
+  adminId        String?
+  admin          User?               @relation("AdminElections", fields: [adminId], references: [id])
+
   candidates ElectionCandidate[]
   votes      Vote[]
+  enrolledVoters User[] @relation("ElectionVoters")
 
   @@map("elections")
 }
