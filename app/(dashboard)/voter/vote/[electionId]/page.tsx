@@ -35,11 +35,12 @@ export default function VotePage({ params }: { params: Promise<{ electionId: str
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ electionId, candidateId: selected }),
+        // API expects electionCandidateId (the ElectionCandidate join-table id)
+        body: JSON.stringify({ electionId, electionCandidateId: selected }),
       }).then(r => r.json()),
     onSuccess: (res) => {
       if (res.success) {
-        setReceipt(res.data.receipt)
+        setReceipt(res.data.receipt)   // created() wraps in { success, data }
         setStep('success')
         toast.success('🎉 Vote cast successfully!')
       } else {
@@ -51,7 +52,7 @@ export default function VotePage({ params }: { params: Promise<{ electionId: str
 
   const election   = elData?.data
   const candidates = election?.candidates ?? []
-  const voteStatus = statusData?.data
+  const voteStatus = statusData?.data          // {hasVoted, receipt, castAt} from ok() wrapper
   const selectedCandidate = candidates.find((c: any) => c.id === selected)
 
   if (elLoading) return (

@@ -21,11 +21,16 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const closed = await prisma.election.update({
       where: { id },
-      data: { status: ElectionStatus.ENDED, endedAt: new Date() },
+      data: { status: ElectionStatus.ENDED },
     })
 
     await prisma.auditLog.create({
-      data: { userId: user.sub, electionId: id, action: 'ELECTION_CLOSED', entity: 'Election', entityId: id },
+      data: {
+        userId: user.sub,
+        action: 'ELECTION_ENDED',
+        resource: 'election',
+        resourceId: id,
+      },
     })
 
     return ok(closed, 'Election closed and results finalised')

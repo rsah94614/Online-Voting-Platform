@@ -13,42 +13,35 @@ interface NavItem {
   badge?: string | number
 }
 
+// Keys match the Prisma Role enum (uppercase) exactly as stored in the JWT
 const NAV: Record<UserRole, NavItem[]> = {
-  admin: [
-    { href: '/admin',                 label: 'Overview',       icon: '◉' },
-    { href: '/admin/elections',       label: 'Elections',      icon: '🗳️',  badge: 3 },
-    { href: '/admin/elections/create',label: 'Create Election', icon: '＋' },
-    { href: '/admin/candidates',      label: 'Candidates',     icon: '👤' },
-    { href: '/admin/voters',          label: 'Voters',         icon: '👥' },
-    { href: '/admin/parties',         label: 'Parties',        icon: '🏛️' },
-    { href: '/admin/analytics',       label: 'Analytics',      icon: '📊' },
-    { href: '/admin/audit',           label: 'Audit Logs',     icon: '🔍' },
-    { href: '/admin/settings',        label: 'Settings',       icon: '⚙️' },
+  ADMIN: [
+    { href: '/admin',                  label: 'Overview',        icon: '◉' },
+    { href: '/admin/elections',        label: 'Elections',       icon: '🗳️', badge: 3 },
+    { href: '/admin/elections/create', label: 'Create Election', icon: '＋' },
+    { href: '/admin/candidates',       label: 'Candidates',      icon: '👤' },
+    { href: '/admin/voters',           label: 'Voters',          icon: '👥' },
+    { href: '/admin/parties',          label: 'Parties',         icon: '🏛️' },
+    { href: '/admin/analytics',        label: 'Analytics',       icon: '📊' },
+    { href: '/admin/audit',            label: 'Audit Logs',      icon: '🔍' },
+    { href: '/admin/settings',         label: 'Settings',        icon: '⚙️' },
   ],
-  candidate: [
-    { href: '/candidate',             label: 'My Dashboard',   icon: '◉' },
-    { href: '/candidate/profile',     label: 'My Profile',     icon: '👤' },
-    { href: '/candidate/manifesto',   label: 'Manifesto',      icon: '📋' },
+  CANDIDATE: [
+    { href: '/candidate',             label: 'My Dashboard',      icon: '◉' },
+    { href: '/candidate/profile',     label: 'My Profile',        icon: '👤' },
+    { href: '/candidate/manifesto',   label: 'Manifesto',         icon: '📋' },
     { href: '/candidate/assets',      label: 'Asset Declaration', icon: '💰' },
-    { href: '/candidate/standings',   label: 'Live Standings', icon: '📊' },
-    { href: '/candidate/supporters',  label: 'Supporters',     icon: '👥' },
-    { href: '/candidate/messages',    label: 'Messages',       icon: '✉️',  badge: 4 },
+    { href: '/candidate/standings',   label: 'Live Standings',    icon: '📊' },
   ],
-  party_admin: [
-    { href: '/party',                 label: 'Overview',       icon: '◉' },
-    { href: '/party/candidates',      label: 'Our Candidates', icon: '👤' },
-    { href: '/party/performance',     label: 'Performance',    icon: '📊' },
-    { href: '/party/campaign',        label: 'Campaign',       icon: '🎯' },
-    { href: '/party/finances',        label: 'Finances',       icon: '💰' },
-    { href: '/party/settings',        label: 'Party Settings', icon: '⚙️' },
+  PARTY_ADMIN: [
+    { href: '/party',              label: 'Overview',     icon: '◉' },
+    { href: '/party/performance',  label: 'Performance',  icon: '📊' },
   ],
-  voter: [
-    { href: '/voter',                 label: 'My Dashboard',   icon: '◉' },
-    { href: '/voter/elections',       label: 'Active Elections', icon: '🗳️', badge: 2 },
-    { href: '/voter/history',         label: 'Vote History',   icon: '📋' },
-    { href: '/voter/candidates',      label: 'Browse Candidates', icon: '👤' },
-    { href: '/voter/results',         label: 'Live Results',   icon: '📊' },
-    { href: '/voter/profile',         label: 'My Profile',     icon: '⚙️' },
+  VOTER: [
+    { href: '/voter',            label: 'My Dashboard',    icon: '◉' },
+    { href: '/voter/elections',  label: 'Active Elections', icon: '🗳️', badge: 2 },
+    { href: '/voter/history',    label: 'Vote History',    icon: '📋' },
+    { href: '/voter/results',    label: 'Live Results',    icon: '📊' },
   ],
 }
 
@@ -57,14 +50,15 @@ export default function Sidebar() {
   const user = useAuthStore((s) => s.user)
   const { sidebarCollapsed, toggleSidebar, mobileSidebarOpen, toggleMobileSidebar } = useUIStore()
 
-  const role = user?.role ?? 'voter'
-  const navItems = NAV[role] ?? []
+  // Default to VOTER nav if no user yet — avoids blank sidebar during hydration
+  const role = (user?.role ?? 'VOTER') as UserRole
+  const navItems = NAV[role] ?? NAV['VOTER']
 
   const ROLE_CONFIG: Record<UserRole, { label: string; color: string; bg: string }> = {
-    admin:       { label: 'Admin',       color: 'text-[#00d4ff]', bg: 'bg-gradient-to-br from-[#00d4ff] to-[#7c3aed]' },
-    candidate:   { label: 'Candidate',   color: 'text-[#7c3aed]', bg: 'bg-gradient-to-br from-[#7c3aed] to-[#ff2d6a]' },
-    party_admin: { label: 'Party Admin', color: 'text-[#ff2d6a]', bg: 'bg-gradient-to-br from-[#ff2d6a] to-[#f59e0b]' },
-    voter:       { label: 'Voter',       color: 'text-[#00ff88]', bg: 'bg-gradient-to-br from-[#00ff88] to-[#00d4ff]' },
+    ADMIN:       { label: 'Admin',       color: 'text-[#00d4ff]', bg: 'bg-gradient-to-br from-[#00d4ff] to-[#7c3aed]' },
+    CANDIDATE:   { label: 'Candidate',   color: 'text-[#7c3aed]', bg: 'bg-gradient-to-br from-[#7c3aed] to-[#ff2d6a]' },
+    PARTY_ADMIN: { label: 'Party Admin', color: 'text-[#ff2d6a]', bg: 'bg-gradient-to-br from-[#ff2d6a] to-[#f59e0b]' },
+    VOTER:       { label: 'Voter',       color: 'text-[#00ff88]', bg: 'bg-gradient-to-br from-[#00ff88] to-[#00d4ff]' },
   }
   const rc = ROLE_CONFIG[role]
 
@@ -121,7 +115,8 @@ export default function Sidebar() {
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-3 px-2">
           {navItems.map((item) => {
-            const active = pathname === item.href || (item.href !== `/${role}` && pathname.startsWith(item.href))
+            const dashboardRoot = `/${role.toLowerCase().replace('_', '-').replace('party-admin', 'party')}`
+            const active = pathname === item.href || (item.href !== dashboardRoot && pathname.startsWith(item.href))
             return (
               <Link
                 key={item.href}
@@ -150,13 +145,13 @@ export default function Sidebar() {
 
         {/* Bottom: logout */}
         <div className="px-2 pb-4 border-t border-[rgba(0,212,255,0.12)] pt-3 flex-shrink-0">
-          <Link href="/login"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#475569] hover:text-[#ff2d6a] hover:bg-[rgba(255,45,106,0.06)] transition-all"
+          <button
             onClick={() => useAuthStore.getState().logout()}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#475569] hover:text-[#ff2d6a] hover:bg-[rgba(255,45,106,0.06)] transition-all"
           >
             <span className={`text-base ${sidebarCollapsed ? 'mx-auto' : ''}`}>🚪</span>
             {!sidebarCollapsed && <span className="text-xs font-semibold">Sign Out</span>}
-          </Link>
+          </button>
         </div>
       </aside>
     </>

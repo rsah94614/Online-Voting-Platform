@@ -4,7 +4,7 @@ import { z } from "zod";
 import prisma from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { AuditAction, ElectionStatus } from "@prisma/client";
+import { AuditAction, ElectionStatus, Prisma } from "@prisma/client";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -63,6 +63,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         ...rest,
         startDate: rest.startDate ? new Date(rest.startDate) : undefined,
         endDate: rest.endDate ? new Date(rest.endDate) : undefined,
+        settings: rest.settings !== undefined ? (rest.settings as Prisma.InputJsonValue) : undefined,
         ...(candidateIds !== undefined && {
           candidates: {
             deleteMany: {},

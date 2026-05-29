@@ -1,7 +1,7 @@
 'use client'
 // app/(dashboard)/voter/results/page.tsx
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import DashboardHeader from '@/components/dashboard/DashboardHeader'
@@ -58,7 +58,7 @@ function LiveTicker() {
 }
 
 /* ── Main page ─────────────────────────────────────────────────────────────── */
-export default function VoterResultsPage() {
+function VoterResultsContent() {
   const searchParams = useSearchParams()
   const electionIdParam = searchParams.get('election')
 
@@ -68,7 +68,7 @@ export default function VoterResultsPage() {
     queryFn: () => apiFetch('/api/elections?pageSize=20'),
   })
 
-  const elections: any[] = electionsData?.data?.data ?? []
+  const elections: any[] = useMemo(() => electionsData?.data?.data ?? [], [electionsData?.data?.data])
   const [selectedId, setSelectedId] = useState<string>(electionIdParam ?? '')
 
   useEffect(() => {
@@ -328,5 +328,20 @@ export default function VoterResultsPage() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function VoterResultsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col min-h-screen">
+        <DashboardHeader title="Live Election Results" subtitle="Loading results..." />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="w-10 h-10 border-2 border-[#00d4ff] border-t-transparent rounded-full animate-spin" />
+        </main>
+      </div>
+    }>
+      <VoterResultsContent />
+    </Suspense>
   )
 }

@@ -1,11 +1,20 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import Link from 'next/link'
 
-export default function Hero() {
+interface HeroStats {
+  voterCount: string;
+  electionCount: string;
+  voteCount: string;
+  candidateCount: string;
+  voterTurnout: string;
+}
+
+export default function Hero({ stats: dynamicStats }: { stats?: HeroStats }) {
   const stats = [
-    { num: '127M+', label: 'Votes Cast' },
-    { num: '4,800+', label: 'Elections Run' },
+    { num: dynamicStats?.voteCount || '127M+', label: 'Votes Cast' },
+    { num: dynamicStats?.electionCount || '4,800+', label: 'Elections Run' },
     { num: '98+', label: 'Countries' },
     { num: '99.98%', label: 'Uptime SLA' },
     { num: '∞', label: 'Scalability' },
@@ -49,12 +58,16 @@ export default function Hero() {
       </p>
 
       <div className="flex gap-4 flex-wrap justify-center mb-12 fade-in stagger-3">
-        <button className="px-8 py-3.5 rounded-lg font-bold text-base tracking-wider bg-gradient-to-r from-[#00d4ff] to-[#7c3aed] text-white shadow-[0_0_30px_rgba(0,212,255,0.25)] hover:shadow-[0_0_40px_rgba(0,212,255,0.5)] transition-all">
-          🚀 Start Free Election
-        </button>
-        <button className="px-8 py-3.5 rounded-lg font-bold text-base tracking-wider border border-[#00d4ff] text-[#00d4ff] bg-transparent hover:bg-[rgba(0,212,255,0.08)] shadow-[0_0_15px_rgba(0,212,255,0.1)] hover:shadow-[0_0_30px_rgba(0,212,255,0.25)] transition-all">
-          ▶ Watch Demo
-        </button>
+        <Link href="/register">
+          <button className="px-8 py-3.5 rounded-lg font-bold text-base tracking-wider bg-gradient-to-r from-[#00d4ff] to-[#7c3aed] text-white shadow-[0_0_30px_rgba(0,212,255,0.25)] hover:shadow-[0_0_40px_rgba(0,212,255,0.5)] transition-all">
+            🚀 Start Free Election
+          </button>
+        </Link>
+        <a href="#how-it-works">
+          <button className="px-8 py-3.5 rounded-lg font-bold text-base tracking-wider border border-[#00d4ff] text-[#00d4ff] bg-transparent hover:bg-[rgba(0,212,255,0.08)] shadow-[0_0_15px_rgba(0,212,255,0.1)] hover:shadow-[0_0_30px_rgba(0,212,255,0.25)] transition-all">
+            ▶ Watch Demo
+          </button>
+        </a>
       </div>
 
       <div className="flex gap-10 flex-wrap justify-center mb-14 fade-in stagger-4">
@@ -83,10 +96,10 @@ export default function Hero() {
         </div>
         <div className="grid grid-cols-4 gap-3 p-6">
           {[
-            { val: '1.24M', label: 'Total Voters', delta: '↑ +12.4% this week' },
-            { val: '847K', label: 'Votes Cast', delta: '↑ +8.2K today' },
-            { val: '68.3%', label: 'Voter Turnout', delta: '↑ Above average' },
-            { val: '24', label: 'Candidates', delta: '4 parties active' }
+            { val: dynamicStats?.voterCount || '1.24M', label: 'Total Voters', delta: '↑ Live' },
+            { val: dynamicStats?.voteCount || '847K', label: 'Votes Cast', delta: '↑ Live' },
+            { val: dynamicStats?.voterTurnout || '68.3%', label: 'Voter Turnout', delta: '↑ Active' },
+            { val: dynamicStats?.candidateCount || '24', label: 'Candidates', delta: 'Active on platform' }
           ].map((card, i) => (
             <div key={i} className="bg-[#0e0e24] border border-[rgba(0,212,255,0.18)] rounded-lg p-3.5 relative before:content-[''] before:absolute before:bottom-0 before:left-0 before:right-0 before:h-0.5 before:rounded-b before:bg-[#00d4ff]">
               <div className="font-orb text-lg font-bold text-white mb-1">{card.val}</div>

@@ -64,17 +64,12 @@ const MOCK_DEVICE_BREAKDOWN = [
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
-interface PerformancePageProps {
-  params?: { electionId?: string }
-  searchParams?: { election?: string }
-}
-
-export default function PartyPerformancePage(props: PerformancePageProps) {
+export default function PartyPerformancePage() {
   const user = useAuthStore(s => s.user)
   const { liveElectionId, isPollingActive, pollInterval, startPolling, stopPolling } = useElectionStore()
 
-  // Get election ID from URL or store
-  const electionId = props.searchParams?.election || liveElectionId || 'default'
+  // Get election ID from store
+  const electionId = liveElectionId || 'default'
 
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
@@ -97,21 +92,22 @@ export default function PartyPerformancePage(props: PerformancePageProps) {
   const { data: resultsData, isLoading: resultsLoading, refetch: refetchResults } = useQuery({
     queryKey: ['election-results', electionId],
     queryFn: () => {
-      const endpoint = election?.status === 'LIVE'
+      const elStatus = electionData?.data?.status
+      const endpoint = elStatus === 'LIVE'
         ? `/api/elections/${electionId}/results/live`
         : `/api/elections/${electionId}/results`
       return apiFetch(endpoint)
     },
-    staleTime: election?.status === 'LIVE' ? 5_000 : 60_000,
-    refetchInterval: autoRefresh && election?.status === 'LIVE' ? pollInterval : false,
+    staleTime: electionData?.data?.status === 'LIVE' ? 5_000 : 60_000,
+    refetchInterval: autoRefresh && electionData?.data?.status === 'LIVE' ? pollInterval : false,
   })
 
   // Fetch party-specific performance metrics
   const { data: perfData, isLoading: perfLoading } = useQuery({
-    queryKey: ['party-performance', electionId, user?.partyId],
+    queryKey: ['party-performance', electionId],
     queryFn: () => apiFetch(`/api/elections/${electionId}/party-performance`),
-    staleTime: election?.status === 'LIVE' ? 5_000 : 60_000,
-    refetchInterval: autoRefresh && election?.status === 'LIVE' ? pollInterval : false,
+    staleTime: electionData?.data?.status === 'LIVE' ? 5_000 : 60_000,
+    refetchInterval: autoRefresh && electionData?.data?.status === 'LIVE' ? pollInterval : false,
   })
 
   const election = electionData?.data
@@ -265,7 +261,11 @@ export default function PartyPerformancePage(props: PerformancePageProps) {
           <Card>
             <CardHeader title="Party Comparison" subtitle="Current standings" />
             <div className="p-4">
-              <VotexDonutChart data={MOCK_PARTY_COMPARISON} height={200} innerRadius={48} />
+              <VotexDonutChart
+                data={MOCK_PARTY_COMPARISON.map(p => ({ name: p.name, value: p.percentage, color: p.color }))}
+                height={200}
+                innerRadius={48}
+              />
             </div>
             <div className="px-5 pb-4 space-y-2">
               {MOCK_PARTY_COMPARISON.map(p => (

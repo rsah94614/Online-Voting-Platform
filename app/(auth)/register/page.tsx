@@ -152,14 +152,20 @@ export default function RegisterPage() {
   const [formData, setFormData] = useState<Partial<FormState>>({})
 
   const registerMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => authApi.register(data),
-    onSuccess: ({ data }) => {
-      setUser(data.user, data.token)
-      toast.success('Account created successfully!')
-      const redirects: Record<string, string> = {
-        admin: '/admin', candidate: '/candidate', party_admin: '/party', voter: '/voter',
+    mutationFn: (data: { name: string; email: string; password: string; role?: string; phone?: string }) =>
+      authApi.register(data),
+    onSuccess: (response) => {
+      setUser(response.user)
+      if (response.requiresApproval) {
+        toast.success('Account created! Awaiting admin approval before you can log in.')
+        router.push('/login')
+      } else {
+        toast.success('Account created successfully!')
+        const redirects: Record<string, string> = {
+          ADMIN: '/admin', CANDIDATE: '/candidate', PARTY_ADMIN: '/party', VOTER: '/voter',
+        }
+        router.push(redirects[response.user.role] || '/')
       }
-      router.push(redirects[data.user.role] || '/')
     },
     onError: (err: Error) => toast.error(err.message || 'Registration failed'),
   })
@@ -195,7 +201,15 @@ export default function RegisterPage() {
   })
 
   const submitRegistration = (data: Partial<FormState>) => {
-    registerMutation.mutate({ role: selectedRole, ...data })
+    // Flatten multi-step form state into the API payload
+    const payload = {
+      name:  `${data.personal?.firstName ?? ''} ${data.personal?.lastName ?? ''}`.trim(),
+      email: data.personal?.email ?? '',
+      password: data.security?.password ?? '',
+      phone: data.personal?.phone,
+      role: selectedRole?.toUpperCase().replace('-', '_') ?? 'VOTER',
+    }
+    registerMutation.mutate(payload)
   }
 
   const sendOtp = () => {

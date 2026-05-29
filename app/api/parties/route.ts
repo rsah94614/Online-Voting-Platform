@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
     if (!user) return unauthorized()
 
     const parties = await prisma.party.findMany({
-      where: { status: user.role === Role.ADMIN ? undefined : 'ACTIVE' },
+      where: { isActive: user.role === Role.ADMIN ? undefined : true },
       include: {
-        _count: { select: { members: true, candidates: true } },
+        _count: { select: { candidates: true } },
       },
       orderBy: { name: 'asc' },
     })
@@ -47,7 +47,10 @@ export async function POST(req: NextRequest) {
     })
     if (existing) return conflict('A party with this name or abbreviation already exists')
 
-    const party = await prisma.party.create({ data: { ...body, ideology: body.ideology ?? [] } })
+    // Destructure properties not present in the active Prisma schema
+    const { ideology, foundedYear, ...allowedData } = body
+
+    const party = await prisma.party.create({ data: allowedData })
     return created(party, 'Party registered successfully')
   } catch (e) {
     return handleApiError(e)

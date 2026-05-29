@@ -14,17 +14,36 @@ export async function GET(req: NextRequest, { params }: Params) {
     if (!user) return unauthorized()
 
     const { id } = await params
-    const candidate = await prisma.candidateProfile.findUnique({
+    const candidate = await prisma.candidate.findUnique({
       where: { id },
       include: {
-        user:     { select: { id: true, name: true, email: true, phone: true, avatar: true } },
+        user:     { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } },
         party:    { select: { id: true, name: true, abbreviation: true, color: true } },
-        election: { select: { id: true, title: true, status: true } },
-        _count: { select: { votes: true } },
+        nominations: {
+          select: {
+            election: {
+              select: { id: true, title: true, status: true }
+            }
+          }
+        }
       },
     })
     if (!candidate) return notFound()
-    return ok(candidate)
+
+    // Map candidate fields from bio, manifesto, assetDecl
+    const assetDeclObj = candidate.assetDecl && typeof candidate.assetDecl === 'object'
+      ? (candidate.assetDecl as Record<string, unknown>)
+      : {}
+
+    const mapped = {
+      ...candidate,
+      biography: candidate.bio,
+      election: candidate.nominations[0]?.election || null,
+      status: candidate.isApproved ? 'approved' : 'pending',
+      ...assetDeclObj,
+    }
+
+    return ok(mapped)
   } catch (e) {
     return handleApiError(e)
   }
@@ -51,24 +70,39 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (!user) return unauthorized()
 
     const { id } = await params
-    const existing = await prisma.candidateProfile.findUnique({ where: { id } })
+    const existing = await prisma.candidate.findUnique({ where: { id } })
     if (!existing) return notFound()
 
     // Allow own candidate or admin
     if (existing.userId !== user.sub && !requireRole(user, Role.ADMIN)) return forbidden()
 
     const body = updateSchema.parse(await req.json())
-    const updated = await prisma.candidateProfile.update({
+
+    // We store all extra fields in assetDecl JSON
+    const currentAssetDecl = existing.assetDecl && typeof existing.assetDecl === 'object'
+      ? (existing.assetDecl as Record<string, unknown>)
+      : {}
+
+    const updatedAssetDecl = {
+      ...currentAssetDecl,
+      ...(body.education !== undefined ? { education: body.education } : {}),
+      ...(body.workExperience !== undefined ? { workExperience: body.workExperience } : {}),
+      ...(body.politicalHistory !== undefined ? { politicalHistory: body.politicalHistory } : {}),
+      ...(body.achievements !== undefined ? { achievements: body.achievements } : {}),
+      ...(body.keyPolicies !== undefined ? { keyPolicies: body.keyPolicies } : {}),
+      ...(body.assetDeclarations !== undefined ? { assetDeclarations: body.assetDeclarations } : {}),
+      ...(body.fundingDeclarations !== undefined ? { fundingDeclarations: body.fundingDeclarations } : {}),
+      ...(body.website !== undefined ? { website: body.website } : {}),
+      ...(body.socialLinks !== undefined ? { socialLinks: body.socialLinks } : {}),
+      ...(body.constituency !== undefined ? { constituency: body.constituency } : {}),
+    }
+
+    const updated = await prisma.candidate.update({
       where: { id },
       data: {
-        ...body,
-        ...(body.education       ? { education:       body.education as object }        : {}),
-        ...(body.workExperience  ? { workExperience:  body.workExperience as object }   : {}),
-        ...(body.politicalHistory? { politicalHistory:body.politicalHistory as object } : {}),
-        ...(body.keyPolicies     ? { keyPolicies:     body.keyPolicies as object }      : {}),
-        ...(body.assetDeclarations    ? { assetDeclarations:    body.assetDeclarations as object }    : {}),
-        ...(body.fundingDeclarations  ? { fundingDeclarations:  body.fundingDeclarations as object }  : {}),
-        ...(body.socialLinks     ? { socialLinks:     body.socialLinks as object }      : {}),
+        bio: body.biography !== undefined ? body.biography : undefined,
+        manifesto: body.manifesto !== undefined ? body.manifesto : undefined,
+        assetDecl: updatedAssetDecl,
       },
     })
     return ok(updated, 'Profile updated')

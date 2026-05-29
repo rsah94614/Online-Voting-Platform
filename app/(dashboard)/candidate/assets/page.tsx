@@ -192,7 +192,7 @@ export default function CandidateAssetsPage() {
                     <div className="text-center py-10">
                       <div className="text-4xl mb-3 opacity-40">🏦</div>
                       <p className="text-sm text-[#475569] font-orb font-bold">No assets declared yet</p>
-                      <p className="text-xs text-[#475569] mt-1">Click "+ Add Asset" to start your declaration</p>
+                      <p className="text-xs text-[#475569] mt-1">Click &quot;+ Add Asset&quot; to start your declaration</p>
                     </div>
                   )}
                   {assetFields.map((field, i) => (

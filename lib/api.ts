@@ -1,175 +1,191 @@
-import type {
-  ElectionConfig,
-  CandidateProfile,
-  Party,
-  ElectionResult,
-  AdminAnalytics,
-  PaginatedResponse,
-  ApiResponse,
-  User,
-} from '@/types'
+// lib/api.ts  ←  Replace the existing mock version with this
+// All functions now call real Next.js API routes.
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || '/api'
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-async function request<T>(
-  path: string,
-  options?: RequestInit
-): Promise<ApiResponse<T>> {
-  const token = typeof window !== 'undefined'
-    ? JSON.parse(localStorage.getItem('votex-auth') || '{}')?.state?.token
-    : null
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: "ADMIN" | "VOTER" | "CANDIDATE" | "PARTY_ADMIN";
+  isApproved: boolean;
+  isVerified: boolean;
+  avatarUrl: string | null;
+}
 
-  const res = await fetch(`${BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+export interface Election {
+  id: string;
+  title: string;
+  description: string | null;
+  type: string;
+  status: "DRAFT" | "UPCOMING" | "LIVE" | "ENDED" | "CANCELLED";
+  startDate: string;
+  endDate: string;
+  totalVoters: number;
+  candidates: ElectionCandidate[];
+  _count: { votes: number };
+}
+
+export interface ElectionCandidate {
+  id: string;
+  candidateId: string;
+  candidate: {
+    user: { name: string; avatarUrl: string | null; email: string };
+    party: { name: string; abbreviation: string; color: string } | null;
+    bio: string | null;
+  };
+  _count: { votes: number };
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    headers: { "Content-Type": "application/json" },
     ...options,
-  })
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'Request failed' }))
-    throw new Error(err.message || 'Request failed')
-  }
-
-  return res.json()
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? `Request failed: ${res.status}`);
+  return data as T;
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export const authApi = {
+  register: (body: { name: string; email: string; password: string; role?: string; phone?: string }) =>
+    request<{ user: AuthUser; requiresApproval: boolean }>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
   login: (email: string, password: string) =>
-    request<{ user: User; token: string }>('/auth/login', {
-      method: 'POST',
+    request<{ user: AuthUser }>("/api/auth/login", {
+      method: "POST",
       body: JSON.stringify({ email, password }),
     }),
 
-  register: (payload: Record<string, unknown>) =>
-    request<{ user: User; token: string }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
+  logout: () =>
+    request<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
 
-  me: () => request<User>('/auth/me'),
-
-  verifyOtp: (email: string, otp: string) =>
-    request<{ verified: boolean }>('/auth/verify-otp', {
-      method: 'POST',
-      body: JSON.stringify({ email, otp }),
-    }),
-}
+  me: () =>
+    request<{ user: AuthUser & { candidate?: { id: string; isApproved: boolean; partyId: string | null } } }>("/api/auth/me"),
+};
 
 // ─── Elections ────────────────────────────────────────────────────────────────
 
 export const electionApi = {
-  list: (params: Record<string, string | number>) => {
-    const q = new URLSearchParams(params as Record<string, string>).toString()
-    return request<PaginatedResponse<ElectionConfig>>(`/elections?${q}`)
+  list: (params?: { status?: string; page?: number; limit?: number }) => {
+    const qs = new URLSearchParams(params as Record<string, string>).toString()
+    return request<{ elections: Election[]; total: number; pages: number }>(`/api/elections${qs ? `?${qs}` : ''}`)
   },
 
   get: (id: string) =>
-    request<ElectionConfig>(`/elections/${id}`),
+    request<{ election: Election }>(`/api/elections/${id}`),
 
-  create: (data: Partial<ElectionConfig>) =>
-    request<ElectionConfig>('/elections', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  create: (body: {
+    title: string;
+    description?: string;
+    type: string;
+    startDate: string;
+    endDate: string;
+    candidateIds?: string[];
+  }) =>
+    request<{ election: Election }>("/api/elections", { method: "POST", body: JSON.stringify(body) }),
 
-  update: (id: string, data: Partial<ElectionConfig>) =>
-    request<ElectionConfig>(`/elections/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    }),
+  update: (id: string, body: Partial<Election & { candidateIds?: string[] }>) =>
+    request<{ election: Election }>(`/api/elections/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
 
   delete: (id: string) =>
-    request<void>(`/elections/${id}`, { method: 'DELETE' }),
-
-  launch: (id: string) =>
-    request<ElectionConfig>(`/elections/${id}/launch`, { method: 'POST' }),
-
-  pause: (id: string) =>
-    request<ElectionConfig>(`/elections/${id}/pause`, { method: 'POST' }),
-
-  close: (id: string) =>
-    request<ElectionConfig>(`/elections/${id}/close`, { method: 'POST' }),
+    request<{ ok: boolean }>(`/api/elections/${id}`, { method: "DELETE" }),
 
   results: (id: string) =>
-    request<ElectionResult>(`/elections/${id}/results`),
+    request<{
+      election: Partial<Election>;
+      results: { name: string; votes: number; percentage: number; party: object | null }[];
+      totalVotes: number;
+      turnout: number | null;
+      winner: object | null;
+    }>(`/api/elections/${id}/results`),
+};
 
-  liveResults: (id: string) =>
-    request<ElectionResult>(`/elections/${id}/results/live`),
-}
+// ─── Votes ────────────────────────────────────────────────────────────────────
+
+export const voteApi = {
+  cast: (electionId: string, electionCandidateId: string) =>
+    request<{ ok: boolean; receiptHash: string; message: string }>("/api/votes", {
+      method: "POST",
+      body: JSON.stringify({ electionId, electionCandidateId }),
+    }),
+
+  checkStatus: (electionId: string) =>
+    request<{ voted: boolean; vote: { castAt: string; receiptHash: string } | null }>(
+      `/api/votes?electionId=${electionId}`
+    ),
+};
 
 // ─── Candidates ───────────────────────────────────────────────────────────────
 
 export const candidateApi = {
-  list: (electionId: string) =>
-    request<CandidateProfile[]>(`/elections/${electionId}/candidates`),
-
-  get: (candidateId: string) =>
-    request<CandidateProfile>(`/candidates/${candidateId}`),
-
-  register: (data: Partial<CandidateProfile>) =>
-    request<CandidateProfile>('/candidates/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-
-  update: (id: string, data: Partial<CandidateProfile>) =>
-    request<CandidateProfile>(`/candidates/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    }),
-
-  approve: (id: string) =>
-    request<CandidateProfile>(`/candidates/${id}/approve`, { method: 'POST' }),
-
-  reject: (id: string, reason: string) =>
-    request<CandidateProfile>(`/candidates/${id}/reject`, {
-      method: 'POST',
-      body: JSON.stringify({ reason }),
-    }),
-}
-
-// ─── Voters ───────────────────────────────────────────────────────────────────
-
-export const voterApi = {
-  list: (electionId: string, params?: Record<string, string>) => {
-    const q = new URLSearchParams(params).toString()
-    return request<PaginatedResponse<User>>(`/elections/${electionId}/voters?${q}`)
+  list: (params?: { approved?: boolean; page?: number }) => {
+    const qs = new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(params ?? {}).map(([k, v]) => [k, String(v)])
+      )
+    ).toString();
+    return request<{ candidates: object[]; total: number }>(`/api/candidates${qs ? `?${qs}` : ""}`);
   },
 
-  castVote: (electionId: string, candidateId: string) =>
-    request<{ receipt: string }>('/votes/cast', {
-      method: 'POST',
-      body: JSON.stringify({ electionId, candidateId }),
+  approve: (id: string, approved: boolean, reason?: string) =>
+    request<{ candidate: object }>(`/api/candidates/${id}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ approved, reason }),
     }),
+};
 
-  verifyVote: (receipt: string) =>
-    request<{ valid: boolean; timestamp: string }>(`/votes/verify/${receipt}`),
+// ─── Users (Admin) ────────────────────────────────────────────────────────────
 
-  myVoteStatus: (electionId: string) =>
-    request<{ hasVoted: boolean; timestamp?: string }>(`/votes/status/${electionId}`),
-}
+export const userApi = {
+  list: (params?: { role?: string; q?: string; page?: number }) => {
+    const qs = new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(params ?? {}).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+      )
+    ).toString();
+    return request<{ users: object[]; total: number; pages: number }>(`/api/users${qs ? `?${qs}` : ""}`);
+  },
 
-// ─── Parties ──────────────────────────────────────────────────────────────────
+  update: (id: string, updates: { isApproved?: boolean; isSuspended?: boolean; isVerified?: boolean }) =>
+    request<{ user: object }>("/api/users", { method: "PATCH", body: JSON.stringify({ id, ...updates }) }),
+};
 
-export const partyApi = {
-  list: () => request<Party[]>('/parties'),
+// ─── Audit ────────────────────────────────────────────────────────────────────
 
-  get: (id: string) => request<Party>(`/parties/${id}`),
-
-  update: (id: string, data: Partial<Party>) =>
-    request<Party>(`/parties/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    }),
-}
+export const auditApi = {
+  list: (params?: { action?: string; userId?: string; page?: number; limit?: number }) => {
+    const qs = new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(params ?? {}).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+      )
+    ).toString();
+    return request<{ logs: object[]; total: number; pages: number }>(`/api/audit${qs ? `?${qs}` : ""}`);
+  },
+};
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
 export const analyticsApi = {
-  admin: () => request<AdminAnalytics>('/analytics/admin'),
-  election: (id: string) => request<Record<string, unknown>>(`/analytics/elections/${id}`),
-}
+  admin: () =>
+    request<{
+      data: {
+        totalElections: number;
+        liveElections: number;
+        totalVoters: number;
+        totalVotesCast: number;
+        totalCandidates: number;
+        pendingCandidates: number;
+        electionsByStatus: object[];
+        recentActivity: object[];
+        monthlyElections: object[];
+      };
+    }>("/api/analytics/admin"),
+};

@@ -19,10 +19,10 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 const ROLE_REDIRECTS: Record<string, string> = {
-  admin: '/admin',
-  candidate: '/candidate',
-  party_admin: '/party',
-  voter: '/voter',
+  ADMIN:       '/admin',
+  VOTER:       '/voter',
+  CANDIDATE:   '/candidate',
+  PARTY_ADMIN: '/party',
 }
 
 export default function LoginPage() {
@@ -36,10 +36,10 @@ export default function LoginPage() {
 
   const loginMutation = useMutation({
     mutationFn: ({ email, password }: FormData) => authApi.login(email, password),
-    onSuccess: ({ data }) => {
-      setUser(data.user, data.token)
-      toast.success(`Welcome back, ${data.user.name}!`)
-      router.push(ROLE_REDIRECTS[data.user.role] || '/')
+    onSuccess: (response) => {
+      setUser(response.user)
+      toast.success(`Welcome back, ${response.user.name}!`)
+      router.push(ROLE_REDIRECTS[response.user.role] || '/')
     },
     onError: (err: Error) => toast.error(err.message || 'Login failed'),
   })

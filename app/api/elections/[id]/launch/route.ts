@@ -23,18 +23,28 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (election.status === ElectionStatus.ENDED) return badRequest('Election has ended')
     if (election._count.candidates < 2) return badRequest('At least 2 approved candidates required to launch')
 
-    const approved = await prisma.candidateProfile.count({
-      where: { electionId: id, status: 'APPROVED' },
+    const approved = await prisma.electionCandidate.count({
+      where: {
+        electionId: id,
+        candidate: {
+          isApproved: true,
+        },
+      },
     })
     if (approved < 2) return badRequest('At least 2 approved candidates required')
 
     const launched = await prisma.election.update({
       where: { id },
-      data: { status: ElectionStatus.LIVE, launchedAt: new Date() },
+      data: { status: ElectionStatus.LIVE },
     })
 
     await prisma.auditLog.create({
-      data: { userId: user.sub, electionId: id, action: 'ELECTION_LAUNCHED', entity: 'Election', entityId: id },
+      data: {
+        userId: user.sub,
+        action: 'ELECTION_LAUNCHED',
+        resource: 'election',
+        resourceId: id,
+      },
     })
 
     return ok(launched, '🚀 Election is now LIVE!')

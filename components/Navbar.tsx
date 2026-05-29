@@ -44,12 +44,16 @@ export default function Navbar() {
       </div>
 
       <div className="flex items-center gap-3">
-        <button className="px-[22px] py-2.5 rounded-lg font-semibold text-sm tracking-wider border border-[rgba(0,212,255,0.18)] text-[#94a3b8] hover:border-[#00d4ff] hover:text-[#00d4ff] hover:shadow-[0_0_20px_rgba(0,212,255,0.1)] transition-all">
-          Sign In
-        </button>
-        <button className="px-[22px] py-2.5 rounded-lg font-semibold text-sm tracking-wider bg-gradient-to-r from-[#00d4ff] to-[#7c3aed] text-white shadow-[0_0_30px_rgba(0,212,255,0.25)] hover:shadow-[0_0_40px_rgba(0,212,255,0.5)] transition-all">
-          Launch Election →
-        </button>
+        <Link href="/login">
+          <button className="px-[22px] py-2.5 rounded-lg font-semibold text-sm tracking-wider border border-[rgba(0,212,255,0.18)] text-[#94a3b8] hover:border-[#00d4ff] hover:text-[#00d4ff] hover:shadow-[0_0_20px_rgba(0,212,255,0.1)] transition-all">
+            Sign In
+          </button>
+        </Link>
+        <Link href="/register">
+          <button className="px-[22px] py-2.5 rounded-lg font-semibold text-sm tracking-wider bg-gradient-to-r from-[#00d4ff] to-[#7c3aed] text-white shadow-[0_0_30px_rgba(0,212,255,0.25)] hover:shadow-[0_0_40px_rgba(0,212,255,0.5)] transition-all">
+            Launch Election →
+          </button>
+        </Link>
       </div>
     </nav>
   )

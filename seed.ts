@@ -1,8 +1,7 @@
 // seed.ts - Run with: npx prisma db seed
-import { PrismaClient, Role, ElectionType, ElectionStatus, AuditAction } from "@prisma/client";
+import { Role, ElectionType, ElectionStatus, AuditAction } from "@prisma/client";
 import bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
+import prisma from "./lib/db";
 
 async function main() {
   console.log("🌱 Seeding VOTEX database...");

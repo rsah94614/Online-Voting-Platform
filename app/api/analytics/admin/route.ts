@@ -1,7 +1,7 @@
 // app/api/analytics/admin/route.ts
 import { NextRequest } from 'next/server'
 import { Role } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
+import prisma from '@/lib/db'
 import { getAuthUser, requireRole } from '@/lib/auth'
 import { ok, unauthorized, forbidden, handleApiError } from '@/lib/response'
 
@@ -25,8 +25,8 @@ export async function GET(req: NextRequest) {
       prisma.election.count({ where: { status: 'LIVE' } }),
       prisma.user.count({ where: { role: 'VOTER' } }),
       prisma.vote.count(),
-      prisma.candidateProfile.count(),
-      prisma.candidateProfile.count({ where: { status: 'PENDING' } }),
+      prisma.candidate.count(),                                    // correct model name
+      prisma.candidate.count({ where: { isApproved: false } }),   // pending = not yet approved
       prisma.election.groupBy({ by: ['status'], _count: { id: true } }),
       prisma.auditLog.findMany({
         take: 20,
@@ -50,9 +50,9 @@ export async function GET(req: NextRequest) {
       ORDER BY date_trunc('month', e."createdAt") ASC
     `
 
-    const totalRegistered = await prisma.voterRegistration.count()
-    const avgTurnout = totalRegistered > 0
-      ? Math.round((totalVotesCast / totalRegistered) * 1000) / 10
+    // Turnout: votes cast vs total voters (no VoterRegistration model, use voter count)
+    const avgTurnout = totalVoters > 0
+      ? Math.round((totalVotesCast / totalVoters) * 1000) / 10
       : 0
 
     return ok({
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
       recentActivity: recentActivity.map((a) => ({
         id:        a.id,
         action:    a.action,
-        entity:    a.entity,
+        resource:  a.resource,
         user:      a.user?.name ?? 'System',
         createdAt: a.createdAt,
       })),

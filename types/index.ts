@@ -1,6 +1,6 @@
 // ─── User & Auth ────────────────────────────────────────────────────────────
 
-export type UserRole = 'admin' | 'candidate' | 'party_admin' | 'voter'
+export type UserRole = 'ADMIN' | 'VOTER' | 'CANDIDATE' | 'PARTY_ADMIN'
 
 export interface User {
   id: string

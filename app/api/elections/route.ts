@@ -4,7 +4,7 @@ import { z } from "zod";
 import prisma from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { AuditAction, ElectionStatus, ElectionType } from "@prisma/client";
+import { AuditAction, ElectionStatus, ElectionType, Prisma } from "@prisma/client";
 
 const createSchema = z.object({
   title: z.string().min(5).max(200),
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
         status,
         startDate: startDate,
         endDate: new Date(data.endDate),
-        settings: data.settings,
+        settings: data.settings !== undefined ? (data.settings as Prisma.InputJsonValue) : undefined,
         candidates: data.candidateIds?.length
           ? { create: data.candidateIds.map((id) => ({ candidateId: id })) }
           : undefined,

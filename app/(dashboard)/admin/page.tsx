@@ -60,7 +60,7 @@ export default function AdminDashboard() {
 
   const elections = useQuery({
     queryKey: queryKeys.elections({ status: 'live' }),
-    queryFn: () => electionApi.list({ status: 'live', page: 1, pageSize: 5 }).then((r) => r.data),
+    queryFn: () => electionApi.list({ status: 'live', page: 1, limit: 5 }).then((r) => r.elections),
     refetchInterval: 10_000, // poll every 10s
   })
 

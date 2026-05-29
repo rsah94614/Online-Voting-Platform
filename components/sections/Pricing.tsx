@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 export default function Pricing() {
   const plans = [
     {
@@ -16,12 +18,13 @@ export default function Pricing() {
         { check: false, text: 'Biometric auth' },
       ],
       buttonText: 'Get Started Free',
+      buttonLink: '/register',
       buttonStyle: 'border border-[rgba(0,212,255,0.18)] text-[#94a3b8] hover:border-[#00d4ff] hover:text-[#00d4ff]',
     },
     {
       tier: 'Professional',
-      price: '299',
-      cycle: 'per election · or $999/month unlimited',
+      price: '2,999',
+      cycle: 'per election · or ₹9,999/month unlimited',
       desc: 'For corporate elections, city councils, universities, and organizations.',
       features: [
         { check: true, text: 'Unlimited voters & candidates' },
@@ -34,6 +37,7 @@ export default function Pricing() {
         { check: true, text: 'API access + webhooks' },
       ],
       buttonText: 'Start Free Trial',
+      buttonLink: '/register',
       buttonStyle: 'bg-gradient-to-r from-[#00d4ff] to-[#7c3aed] text-white shadow-[0_0_30px_rgba(0,212,255,0.25)] hover:shadow-[0_0_40px_rgba(0,212,255,0.5)]',
       featured: true,
     },
@@ -53,6 +57,7 @@ export default function Pricing() {
         { check: true, text: 'White-label & custom domain' },
       ],
       buttonText: 'Contact Sales →',
+      buttonLink: '/contact',
       buttonStyle: 'border border-[rgba(124,58,237,0.3)] text-[#7c3aed] hover:border-[#7c3aed]',
     },
   ]
@@ -91,7 +96,7 @@ export default function Pricing() {
             <div className={plan.featured ? 'mt-8' : ''}>
               <div className="text-xs text-[#94a3b8] tracking-widest uppercase font-mono mb-2">{plan.tier}</div>
               <div className="flex items-baseline gap-1 mb-1">
-                <span className="font-orb text-4xl font-black text-white">$</span>
+                <span className="font-orb text-4xl font-black text-white">{plan.price === 'Custom' ? '' : '₹'}</span>
                 <span className="font-orb text-5xl font-black text-white">{plan.price}</span>
               </div>
               <div className="text-xs text-[#475569] mb-5">{plan.cycle}</div>
@@ -110,9 +115,11 @@ export default function Pricing() {
                 ))}
               </div>
 
-              <button className={`w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase transition-all ${plan.buttonStyle}`}>
-                {plan.buttonText}
-              </button>
+              <Link href={plan.buttonLink} className="block w-full">
+                <button className={`w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase transition-all ${plan.buttonStyle}`}>
+                  {plan.buttonText}
+                </button>
+              </Link>
             </div>
           </div>
         ))}

@@ -1,6 +1,6 @@
 // app/api/votes/status/[electionId]/route.ts
 import { NextRequest } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import prisma from '@/lib/db'
 import { getAuthUser } from '@/lib/auth'
 import { ok, unauthorized, handleApiError } from '@/lib/response'
 
@@ -15,22 +15,15 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     const vote = await prisma.vote.findUnique({
       where: { voterId_electionId: { voterId: user.sub, electionId } },
-      select: { receipt: true, castAt: true },
-    })
-
-    const registration = await prisma.voterRegistration.findUnique({
-      where: { userId_electionId: { userId: user.sub, electionId } },
-      select: { isVerified: true },
+      select: { receiptHash: true, castAt: true },
     })
 
     return ok({
-      hasVoted:     !!vote,
-      receipt:      vote?.receipt ?? null,
-      castAt:       vote?.castAt  ?? null,
-      isRegistered: !!registration,
-      isVerified:   registration?.isVerified ?? false,
+      hasVoted: !!vote,
+      receipt:  vote?.receiptHash ?? null,
+      castAt:   vote?.castAt  ?? null,
     })
   } catch (e) {
     return handleApiError(e)
   }
-}
+}

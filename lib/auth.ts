@@ -60,19 +60,30 @@ export async function getUserFromRequest(req: NextRequest): Promise<JWTPayload |
   return verifyToken(token);
 }
 
+// Alias for API routes (getAuthUser = getUserFromRequest)
+export const getAuthUser = getUserFromRequest;
+
+// Check if user has specific role
+export function requireRole(user: JWTPayload | null, ...requiredRoles: Role[]): boolean {
+  if (!user) return false;
+  return requiredRoles.includes(user.role);
+}
+
 // Set auth cookie in a Response
 export function setAuthCookie(res: Response, token: string) {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   res.headers.append(
     "Set-Cookie",
-    `${COOKIE_NAME}=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${7 * 24 * 60 * 60}`
+    `${COOKIE_NAME}=${token}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=${7 * 24 * 60 * 60}`
   );
 }
 
 // Clear auth cookie
 export function clearAuthCookie(res: Response) {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   res.headers.append(
     "Set-Cookie",
-    `${COOKIE_NAME}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`
+    `${COOKIE_NAME}=; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=0`
   );
 }
 

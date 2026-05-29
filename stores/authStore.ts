@@ -1,69 +1,101 @@
-'use client'
+// stores/authStore.ts  ←  Replace existing version
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { authApi, AuthUser } from "@/lib/api";
 
-import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
-import type { User, UserRole } from '@/types'
-
-interface AuthStore {
-  user: User | null
-  token: string | null
-  isAuthenticated: boolean
-  isLoading: boolean
+interface AuthState {
+  user: AuthUser | null;
+  isLoading: boolean;
+  error: string | null;
 
   // Actions
-  setUser: (user: User, token: string) => void
-  updateUser: (partial: Partial<User>) => void
-  logout: () => void
-  setLoading: (v: boolean) => void
-
-  // Helpers
-  hasRole: (role: UserRole | UserRole[]) => boolean
-  isAdmin: () => boolean
-  isCandidate: () => boolean
-  isPartyAdmin: () => boolean
-  isVoter: () => boolean
+  login: (email: string, password: string) => Promise<void>;
+  register: (data: {
+    name: string;
+    email: string;
+    password: string;
+    role?: string;
+    phone?: string;
+  }) => Promise<{ requiresApproval: boolean }>;
+  logout: () => Promise<void>;
+  fetchMe: () => Promise<void>;
+  clearError: () => void;
+  setUser: (user: AuthUser | null) => void;
 }
 
-export const useAuthStore = create<AuthStore>()(
+export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
-      token: null,
-      isAuthenticated: false,
       isLoading: false,
+      error: null,
 
-      setUser: (user, token) =>
-        set({ user, token, isAuthenticated: true, isLoading: false }),
-
-      updateUser: (partial) =>
-        set((state) => ({
-          user: state.user ? { ...state.user, ...partial } : null,
-        })),
-
-      logout: () =>
-        set({ user: null, token: null, isAuthenticated: false }),
-
-      setLoading: (v) => set({ isLoading: v }),
-
-      hasRole: (role) => {
-        const { user } = get()
-        if (!user) return false
-        if (Array.isArray(role)) return role.includes(user.role)
-        return user.role === role
+      login: async (email, password) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { user } = await authApi.login(email, password);
+          set({ user, isLoading: false });
+        } catch (err) {
+          set({
+            error: err instanceof Error ? err.message : "Login failed",
+            isLoading: false,
+          });
+          throw err;
+        }
       },
-      isAdmin: () => get().user?.role === 'admin',
-      isCandidate: () => get().user?.role === 'candidate',
-      isPartyAdmin: () => get().user?.role === 'party_admin',
-      isVoter: () => get().user?.role === 'voter',
+
+      register: async (data) => {
+        set({ isLoading: true, error: null });
+        try {
+          const result = await authApi.register(data);
+          set({ user: result.user, isLoading: false });
+          return { requiresApproval: result.requiresApproval };
+        } catch (err) {
+          set({
+            error: err instanceof Error ? err.message : "Registration failed",
+            isLoading: false,
+          });
+          throw err;
+        }
+      },
+
+      logout: async () => {
+        set({ isLoading: true });
+        try {
+          await authApi.logout();
+        } catch {}
+        set({ user: null, isLoading: false, error: null });
+        // Clear persisted state
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+      },
+
+      fetchMe: async () => {
+        set({ isLoading: true });
+        try {
+          const { user } = await authApi.me();
+          set({ user: user as AuthUser, isLoading: false });
+        } catch {
+          set({ user: null, isLoading: false });
+        }
+      },
+
+      clearError: () => set({ error: null }),
+
+      setUser: (user) => set({ user }),
     }),
     {
-      name: 'votex-auth',
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        user: state.user,
-        token: state.token,
-        isAuthenticated: state.isAuthenticated,
-      }),
+      name: "votex-auth",
+      // Only persist user — don't persist loading/error states
+      partialize: (state) => ({ user: state.user }),
     }
   )
-)
+);
+
+// Convenience selectors
+export const selectUser = (s: AuthState) => s.user;
+export const selectIsAdmin = (s: AuthState) => s.user?.role === "ADMIN";
+export const selectIsVoter = (s: AuthState) => s.user?.role === "VOTER";
+export const selectIsCandidate = (s: AuthState) => s.user?.role === "CANDIDATE";
+export const selectIsPartyAdmin = (s: AuthState) => s.user?.role === "PARTY_ADMIN";

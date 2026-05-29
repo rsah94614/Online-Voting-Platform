@@ -1,6 +1,6 @@
 // lib/audit.ts - Audit logging utility
 import prisma from "@/lib/db";
-import { AuditAction } from "@prisma/client";
+import { AuditAction, Prisma } from "@prisma/client";
 import { NextRequest } from "next/server";
 
 interface AuditParams {
@@ -20,7 +20,7 @@ export async function logAudit(params: AuditParams) {
         action: params.action,
         resource: params.resource,
         resourceId: params.resourceId,
-        details: params.details,
+        details: params.details !== undefined ? (params.details as Prisma.InputJsonValue) : undefined,
         ipAddress: params.req
           ? (params.req.headers.get("x-forwarded-for") ?? params.req.headers.get("x-real-ip") ?? "unknown")
           : undefined,
