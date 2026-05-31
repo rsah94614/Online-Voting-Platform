@@ -7,6 +7,7 @@ import { getUserFromRequest } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { broadcast } from "@/lib/sse";
 import { AuditAction, ElectionStatus } from "@prisma/client";
+import { rateLimit } from "@/lib/rate-limit";
 
 const schema = z.object({
   electionId: z.string(),
@@ -18,6 +19,24 @@ export async function POST(req: NextRequest) {
   const user = await getUserFromRequest(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (user.role !== "VOTER") return NextResponse.json({ error: "Only voters can cast votes" }, { status: 403 });
+
+  // Rate limit: 5 vote submissions per user per minute.
+  // The DB unique constraint is the hard backstop against double-voting,
+  // but throttling here reduces race-condition pressure and prevents spam.
+  const rl = rateLimit(`vote:${user.sub}`, { limit: 5, windowMs: 60 * 1000 });
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many requests. Please slow down." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil((rl.reset - Date.now()) / 1000)),
+          "X-RateLimit-Limit": String(rl.limit),
+          "X-RateLimit-Remaining": "0",
+        },
+      }
+    );
+  }
 
   try {
     const body = await req.json();

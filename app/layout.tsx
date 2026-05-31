@@ -1,14 +1,17 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import ScrollObserver from '@/components/ScrollObserver'
 import QueryProvider from '@/providers/QueryProvider'
 import { Toaster } from 'react-hot-toast'
 
+export const viewport: Viewport = {
+  themeColor: '#060611',
+}
+
 export const metadata: Metadata = {
   title: 'VOTEX — Next-Gen Election Platform',
   description: 'Enterprise-grade election management platform. Secure, transparent, scalable — from college polls to national elections.',
   manifest: '/manifest.json',
-  themeColor: '#060611',
   appleWebApp: {
     title: 'VOTEX',
     statusBarStyle: 'black-translucent',

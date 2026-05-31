@@ -23,7 +23,16 @@ function createClient(): PrismaClient {
 
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    max: process.env.NODE_ENV === "production" ? 10 : 3,
+    // Reduced max from 10 → 5 in production.
+    // In serverless environments each function instance creates its own pool,
+    // so many concurrent cold-starts could exhaust PostgreSQL's connection limit.
+    // Use a database-level connection pooler (PgBouncer / Neon pooler) for
+    // true serverless scale; this just prevents runaway local exhaustion.
+    max: process.env.NODE_ENV === "production" ? 5 : 3,
+    // Release idle connections within 30 s so they don't linger after traffic spikes.
+    idleTimeoutMillis: 30_000,
+    // Fail fast (2 s) rather than letting the request hang if the DB is unreachable.
+    connectionTimeoutMillis: 2_000,
   });
 
   const adapter = new PrismaPg(pool);

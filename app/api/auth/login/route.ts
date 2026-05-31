@@ -6,6 +6,7 @@ import prisma from "@/lib/db";
 import { signToken, setAuthCookie } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { AuditAction } from "@prisma/client";
+import { rateLimit } from "@/lib/rate-limit";
 
 const schema = z.object({
   email: z.string().email(),
@@ -13,6 +14,27 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 10 login attempts per IP per 15 minutes.
+  // This also limits how often bcrypt.compare() runs per IP,
+  // preventing brute-force attacks and CPU spikes from failed attempts.
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim()
+    ?? req.headers.get("x-real-ip")
+    ?? "unknown";
+  const rl = rateLimit(`login:${ip}`, { limit: 10, windowMs: 15 * 60 * 1000 });
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many login attempts. Please try again in 15 minutes." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil((rl.reset - Date.now()) / 1000)),
+          "X-RateLimit-Limit": String(rl.limit),
+          "X-RateLimit-Remaining": "0",
+        },
+      }
+    );
+  }
+
   try {
     const body = await req.json();
     const { email, password } = schema.parse(body);

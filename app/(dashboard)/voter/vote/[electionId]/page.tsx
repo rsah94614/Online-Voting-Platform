@@ -1,7 +1,7 @@
 'use client'
 // app/(dashboard)/voter/vote/[electionId]/page.tsx
 
-import { use, useState } from 'react'
+import { use, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import DashboardHeader from '@/components/dashboard/DashboardHeader'
@@ -19,6 +19,12 @@ export default function VotePage({ params }: { params: Promise<{ electionId: str
   const [step, setStep]           = useState<Step>('select')
   const [receipt, setReceipt]     = useState('')
 
+  // useRef so the flag is set synchronously in onMutate — before the
+  // network request even fires.  This closes the race-condition window
+  // where opening the page in two browser tabs simultaneously could
+  // both pass the isPending check and dispatch two vote requests.
+  const isSubmitting = useRef(false)
+
   const { data: elData, isLoading: elLoading } = useQuery({
     queryKey: ['election', electionId],
     queryFn: () => apiFetch(`/api/elections/${electionId}`),
@@ -30,6 +36,8 @@ export default function VotePage({ params }: { params: Promise<{ electionId: str
   })
 
   const castMutation = useMutation({
+    // Set the flag immediately — before the fetch is even initiated.
+    onMutate: () => { isSubmitting.current = true },
     mutationFn: () =>
       fetch('/api/votes/cast', {
         method: 'POST',
@@ -48,7 +56,10 @@ export default function VotePage({ params }: { params: Promise<{ electionId: str
       }
     },
     onError: () => toast.error('Network error — please try again'),
+    // Always release the lock when the mutation settles (success or error)
+    onSettled: () => { isSubmitting.current = false },
   })
+
 
   const election   = elData?.data
   const candidates = election?.candidates ?? []
@@ -302,11 +313,12 @@ export default function VotePage({ params }: { params: Promise<{ electionId: str
 
                 <div className="flex gap-3">
                   <button onClick={() => setStep('select')}
-                    className="flex-1 py-3 rounded-xl border border-[rgba(0,212,255,0.2)] text-[#94a3b8] text-sm font-orb font-bold hover:border-[#00d4ff] hover:text-[#00d4ff] transition-all">
+                    disabled={castMutation.isPending || isSubmitting.current}
+                    className="flex-1 py-3 rounded-xl border border-[rgba(0,212,255,0.2)] text-[#94a3b8] text-sm font-orb font-bold hover:border-[#00d4ff] hover:text-[#00d4ff] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                     ← Change Selection
                   </button>
                   <button
-                    disabled={castMutation.isPending}
+                    disabled={castMutation.isPending || isSubmitting.current}
                     onClick={() => castMutation.mutate()}
                     className="flex-[2] py-3 rounded-xl bg-gradient-to-r from-[#00d4ff] to-[#7c3aed] text-white text-sm font-orb font-bold hover:shadow-[0_0_30px_rgba(0,212,255,0.3)] transition-all disabled:opacity-60 disabled:cursor-not-allowed">
                     {castMutation.isPending ? (
