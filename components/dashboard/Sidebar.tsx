@@ -30,7 +30,6 @@ const NAV: Record<UserRole, NavItem[]> = {
     { href: '/candidate',             label: 'My Dashboard',      icon: '◉' },
     { href: '/candidate/profile',     label: 'My Profile',        icon: '👤' },
     { href: '/candidate/manifesto',   label: 'Manifesto',         icon: '📋' },
-    { href: '/candidate/assets',      label: 'Asset Declaration', icon: '💰' },
     { href: '/candidate/standings',   label: 'Live Standings',    icon: '📊' },
   ],
   PARTY_ADMIN: [

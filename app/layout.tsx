@@ -3,6 +3,7 @@ import './globals.css'
 import ScrollObserver from '@/components/ScrollObserver'
 import QueryProvider from '@/providers/QueryProvider'
 import { Toaster } from 'react-hot-toast'
+import Script from 'next/script'
 
 export const viewport: Viewport = {
   themeColor: '#060611',
@@ -22,6 +23,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-0000000000000000"
+          crossOrigin="anonymous"
+          strategy="lazyOnload"
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `

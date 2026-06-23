@@ -61,9 +61,9 @@ export default function Dashboards({ stats: dynamicStats }: { stats?: Dashboards
 
         <div className="grid grid-cols-4 gap-3 p-6">
           {[
-            { val: dynamicStats?.voterCount || '1.24M', label: 'Registered Voters', trend: '↑ Live' },
-            { val: dynamicStats?.voteCount || '847K', label: 'Votes Recorded', trend: '↑ Real-time' },
-            { val: dynamicStats?.voterTurnout || '68.3%', label: 'Voter Turnout', trend: '↑ Live' },
+            { val: dynamicStats?.voterCount || '450', label: 'Registered Voters', trend: '↑ Live' },
+            { val: dynamicStats?.voteCount || '320', label: 'Votes Recorded', trend: '↑ Real-time' },
+            { val: dynamicStats?.voterTurnout || '71.1%', label: 'Voter Turnout', trend: '↑ Live' },
             { val: '99.97%', label: 'System Uptime', trend: 'Last 30 days' }
           ].map((kpi, i) => (
             <div key={i} className={`bg-[#0e0e24] border border-[rgba(0,212,255,0.18)] rounded-lg p-4 relative after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-b ${'after:bg-[#00d4ff]'}`}>

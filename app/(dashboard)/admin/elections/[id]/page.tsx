@@ -4,6 +4,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useElectionStream } from "@/hooks/useElectionStream";
+import QRCode from "react-qr-code";
 import toast from "react-hot-toast";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -161,6 +162,54 @@ export default function ElectionDetailPage() {
           </div>
         ))}
       </div>
+
+      {/* QR Code Section */}
+      {election.searchCode && (
+        <div className="bg-[#0d1421] border border-slate-700/30 rounded-xl p-6 print:hidden flex flex-col sm:flex-row items-center gap-6">
+          <div className="bg-white p-3 rounded-xl shadow-lg">
+            <QRCode 
+              value={`${typeof window !== 'undefined' ? window.location.origin : 'https://votex.app'}/verify?type=election&code=${election.searchCode}`} 
+              size={120} 
+            />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white font-mono mb-2">Quick-Join QR Code</h2>
+            <p className="text-sm text-slate-400 mb-4 max-w-md">
+              Voters in physical meetings can scan this QR code to instantly access the live voting portal on their mobile devices.
+            </p>
+            <div className="flex gap-3">
+              <button 
+                  onClick={copyPublicLink}
+                  className="px-4 py-2 bg-[#060b14] border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 rounded-lg text-sm font-mono font-bold transition-all"
+                >
+                  🔗 Copy Link
+              </button>
+              <button 
+                  onClick={() => {
+                    const canvas = document.createElement("canvas");
+                    const svg = document.querySelector("svg");
+                    if (!svg) return;
+                    const data = (new XMLSerializer()).serializeToString(svg);
+                    const img = new Image();
+                    img.onload = () => {
+                      canvas.width = img.width;
+                      canvas.height = img.height;
+                      canvas.getContext("2d")?.drawImage(img, 0, 0);
+                      const a = document.createElement("a");
+                      a.download = `QR-${election.searchCode}.png`;
+                      a.href = canvas.toDataURL("image/png");
+                      a.click();
+                    };
+                    img.src = "data:image/svg+xml;base64," + btoa(data);
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] rounded-lg text-sm font-mono font-bold transition-all"
+                >
+                  ⬇️ Download QR
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Results Dashboard & Export (Visible only when ended) */}
       {election.status === "ENDED" && results.length > 0 && (

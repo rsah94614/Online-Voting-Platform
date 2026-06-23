@@ -12,7 +12,8 @@ export async function GET(req: NextRequest) {
     select: {
       id: true, email: true, name: true, role: true,
       isApproved: true, isVerified: true, avatarUrl: true,
-      phone: true, createdAt: true,
+      phone: true, createdAt: true, isPro: true,
+      admin: { select: { isPro: true } },
       candidate: {
         select: {
           id: true,
@@ -44,14 +45,17 @@ export async function GET(req: NextRequest) {
     };
   }
 
+  // Determine effective isPro status for the user (Tenant check)
+  const isPro = user.role === 'ADMIN' ? user.isPro : (user.admin?.isPro || false);
+
   // Support both response formats: `{ user }` directly at root and `{ success: true, data: { user, candidateProfile } }`
   const responseBody = {
     success: true,
     data: {
-      user,
+      user: { ...user, isPro },
       candidateProfile,
     },
-    user, // for backwards compatibility
+    user: { ...user, isPro }, // for backwards compatibility
   };
 
   return NextResponse.json(responseBody);

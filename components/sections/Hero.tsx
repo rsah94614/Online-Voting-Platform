@@ -13,11 +13,11 @@ interface HeroStats {
 
 export default function Hero({ stats: dynamicStats }: { stats?: HeroStats }) {
   const stats = [
-    { num: dynamicStats?.voteCount || '127M+', label: 'Votes Cast' },
-    { num: dynamicStats?.electionCount || '4,800+', label: 'Elections Run' },
-    { num: '98+', label: 'Countries' },
-    { num: '99.98%', label: 'Uptime SLA' },
-    { num: '∞', label: 'Scalability' },
+    { num: dynamicStats?.voteCount || '0', label: 'Votes Cast' },
+    { num: dynamicStats?.electionCount || '0', label: 'Elections Run' },
+    { num: 'Open', label: 'Source' },
+    { num: 'Free', label: 'Community' },
+    { num: 'Fast', label: 'Real-time' },
   ]
 
   useEffect(() => {
@@ -45,16 +45,16 @@ export default function Hero({ stats: dynamicStats }: { stats?: HeroStats }) {
 
       <div className="inline-flex items-center gap-2 px-4 py-1.5 border border-[rgba(0,212,255,0.3)] rounded-full bg-[rgba(0,212,255,0.05)] mb-7 fade-in">
         <span className="w-1.5 h-1.5 rounded-full bg-[#00ff88] shadow-[0_0_8px_#00ff88] inline-block animate-pulse"></span>
-        <span className="text-xs text-[#00d4ff] font-mono tracking-wider">Now live — v2.4 with real-time sync & biometric auth</span>
+        <span className="text-xs text-[#00d4ff] font-mono tracking-wider">Free, Secure, and Community-Driven Online Voting</span>
       </div>
 
       <h1 className="font-orb text-4xl sm:text-5xl lg:text-7xl font-black text-center leading-tight mb-6 fade-in stagger-1">
         <span className="block text-white">The Future of</span>
-        <span className="block bg-gradient-to-r from-[#00d4ff] via-[#7c3aed] to-[#ff2d6a] bg-clip-text text-transparent">Democratic Voting</span>
+        <span className="block bg-gradient-to-r from-[#00d4ff] via-[#7c3aed] to-[#ff2d6a] bg-clip-text text-transparent">Community Voting</span>
       </h1>
 
       <p className="text-base sm:text-lg text-[#94a3b8] text-center max-w-2xl mb-10 fade-in stagger-2">
-        Enterprise-grade election management — from class-president polls to national referendums. Unlimited voters, candidates, parties, and elections. Secure, transparent, and tamper-proof by design.
+        Streamlined election management for communities, student councils, and organizations. Secure, transparent, and completely free to use.
       </p>
 
       <div className="flex gap-4 flex-wrap justify-center mb-12 fade-in stagger-3">
@@ -96,10 +96,10 @@ export default function Hero({ stats: dynamicStats }: { stats?: HeroStats }) {
         </div>
         <div className="grid grid-cols-4 gap-3 p-6">
           {[
-            { val: dynamicStats?.voterCount || '1.24M', label: 'Total Voters', delta: '↑ Live' },
-            { val: dynamicStats?.voteCount || '847K', label: 'Votes Cast', delta: '↑ Live' },
-            { val: dynamicStats?.voterTurnout || '68.3%', label: 'Voter Turnout', delta: '↑ Active' },
-            { val: dynamicStats?.candidateCount || '24', label: 'Candidates', delta: 'Active on platform' }
+            { val: dynamicStats?.voterCount || '0', label: 'Total Voters', delta: '↑ Live' },
+            { val: dynamicStats?.voteCount || '0', label: 'Votes Cast', delta: '↑ Live' },
+            { val: dynamicStats?.voterTurnout || '0%', label: 'Voter Turnout', delta: '↑ Active' },
+            { val: dynamicStats?.candidateCount || '0', label: 'Candidates', delta: 'Active on platform' }
           ].map((card, i) => (
             <div key={i} className="bg-[#0e0e24] border border-[rgba(0,212,255,0.18)] rounded-lg p-3.5 relative before:content-[''] before:absolute before:bottom-0 before:left-0 before:right-0 before:h-0.5 before:rounded-b before:bg-[#00d4ff]">
               <div className="font-orb text-lg font-bold text-white mb-1">{card.val}</div>

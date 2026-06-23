@@ -2,15 +2,14 @@ const candidates = [
   {
     initials: 'AC',
     name: 'Aria Chen',
-    role: 'Presidential Candidate · National Progress Party',
-    party: 'National Progress',
-    votes: '34.2%',
-    voteCount: '289,574',
-    exp: '22',
-    policies: '14',
-    declared: '₹4.2Cr',
-    desc: 'Former Minister of Digital Affairs, PhD in Public Policy from MIT.',
-    tags: ['Healthcare', 'Tech Policy', 'Education', 'Climate'],
+    role: 'Candidate for Secretary · Green Society',
+    party: 'Green Society',
+    votes: '42.5%',
+    voteCount: '124',
+    exp: '4',
+    policies: '5',
+    desc: 'Community organizer for 4 years. Focused on sustainability initiatives.',
+    tags: ['Sustainability', 'Community Events', 'Fundraising'],
     gradient: 'from-[#00d4ff] to-[#7c3aed]',
     bgGradient: 'from-[rgba(0,212,255,0.1)] to-[rgba(124,58,237,0.1)]',
     borderColor: 'border-[rgba(0,212,255,0.2)]',
@@ -18,15 +17,14 @@ const candidates = [
   {
     initials: 'MR',
     name: 'Marcus Reed',
-    role: 'Presidential Candidate · Liberty Alliance Party',
-    party: 'Liberty Alliance',
-    votes: '28.7%',
-    voteCount: '243,173',
-    exp: '18',
-    policies: '11',
-    declared: '₹6.8Cr',
-    desc: 'Senator for 12 years, former Harvard Law graduate.',
-    tags: ['Economy', 'Civil Rights', 'Legal Reform', 'Trade'],
+    role: 'Candidate for Treasurer · Tech Club',
+    party: 'Tech Club',
+    votes: '35.2%',
+    voteCount: '98',
+    exp: '2',
+    policies: '3',
+    desc: 'Accounting major. Wants to increase club budget transparency.',
+    tags: ['Budget', 'Transparency', 'Tech Workshops'],
     gradient: 'from-[#7c3aed] to-[#ff2d6a]',
     bgGradient: 'from-[rgba(124,58,237,0.1)] to-[rgba(255,45,106,0.1)]',
     borderColor: 'border-[rgba(124,58,237,0.2)]',
@@ -34,15 +32,14 @@ const candidates = [
   {
     initials: 'SV',
     name: 'Sofia Vega',
-    role: 'Presidential Candidate · United Front Coalition',
-    party: 'United Front',
-    votes: '22.1%',
-    voteCount: '187,253',
-    exp: '15',
-    policies: '9',
-    declared: '₹2.1Cr',
-    desc: 'Grassroots activist turned national leader.',
-    tags: ['Housing', 'Social Equity', 'Labor', 'Healthcare'],
+    role: 'Candidate for President · Student Union',
+    party: 'Student Union',
+    votes: '18.1%',
+    voteCount: '53',
+    exp: '3',
+    policies: '4',
+    desc: 'Former Vice President. Advocating for better student welfare.',
+    tags: ['Student Welfare', 'Campus Life', 'Inclusivity'],
     gradient: 'from-[#ff2d6a] to-[#f59e0b]',
     bgGradient: 'from-[rgba(255,45,106,0.1)] to-[rgba(245,158,11,0.1)]',
     borderColor: 'border-[rgba(255,45,106,0.2)]',
@@ -50,15 +47,14 @@ const candidates = [
   {
     initials: 'JO',
     name: 'James Okafor',
-    role: 'Presidential Candidate · Green Future Party',
-    party: 'Green Future',
+    role: 'Board Member · Oakwood HOA',
+    party: 'Oakwood HOA',
     votes: '15.0%',
-    voteCount: '127,293',
-    exp: '10',
-    policies: '7',
-    declared: '₹1.4Cr',
-    desc: 'Environmental scientist and activist.',
-    tags: ['Climate', 'Clean Energy', 'Agriculture', 'Net-Zero'],
+    voteCount: '45',
+    exp: '5',
+    policies: '2',
+    desc: 'Resident for 10 years. Wants to upgrade the community park.',
+    tags: ['Maintenance', 'Security', 'Community Park'],
     gradient: 'from-[#00ff88] to-[#00d4ff]',
     bgGradient: 'from-[rgba(0,255,136,0.1)] to-[rgba(0,212,255,0.1)]',
     borderColor: 'border-[rgba(0,255,136,0.2)]',
@@ -77,7 +73,7 @@ export default function Candidates() {
           <span className="bg-gradient-to-r from-[#00d4ff] to-[#7c3aed] bg-clip-text text-transparent">Candidate</span>
         </h2>
         <p className="text-base text-[#94a3b8] max-w-2xl mx-auto leading-relaxed fade-in stagger-2">
-          Full disclosure, publicly verifiable records. Every candidate&apos;s biography, qualifications, achievements, manifestos, and asset declarations.
+          Full disclosure, publicly verifiable records. Every candidate&apos;s biography, qualifications, and manifestos.
         </p>
       </div>
 
@@ -106,7 +102,7 @@ export default function Candidates() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="grid grid-cols-2 gap-2 mb-4">
                 <div className="bg-[#0e0e24] border border-[rgba(0,212,255,0.18)] rounded p-2 text-center">
                   <div className="font-orb font-bold text-[#00d4ff] text-sm">{cand.exp}</div>
                   <div className="text-xs text-[#475569] uppercase tracking-wider">Yrs Exp</div>
@@ -114,10 +110,6 @@ export default function Candidates() {
                 <div className="bg-[#0e0e24] border border-[rgba(0,212,255,0.18)] rounded p-2 text-center">
                   <div className="font-orb font-bold text-[#00d4ff] text-sm">{cand.policies}</div>
                   <div className="text-xs text-[#475569] uppercase tracking-wider">Policies</div>
-                </div>
-                <div className="bg-[#0e0e24] border border-[rgba(0,212,255,0.18)] rounded p-2 text-center">
-                  <div className="font-orb font-bold text-[#00d4ff] text-sm">{cand.declared}</div>
-                  <div className="text-xs text-[#475569] uppercase tracking-wider">Declared</div>
                 </div>
               </div>
 

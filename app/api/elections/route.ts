@@ -31,7 +31,8 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = req.nextUrl;
-  const status = searchParams.get("status") as ElectionStatus | null;
+  const statusRaw = searchParams.get("status");
+  const status = statusRaw ? (statusRaw.toUpperCase() as ElectionStatus) : null;
   const page = parseInt(searchParams.get("page") ?? "1");
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "20"), 100);
 

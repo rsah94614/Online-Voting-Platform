@@ -1,7 +1,7 @@
 "use client";
 // app/(dashboard)/admin/voters/page.tsx
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
@@ -38,6 +38,9 @@ export default function VotersPage() {
   const [role, setRole] = useState("VOTER");
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -65,12 +68,51 @@ export default function VotersPage() {
     ADMIN: "text-amber-400",
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const res = await fetch("/api/users/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csvData: text }),
+      });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || "Import failed");
+      
+      toast.success(`Successfully imported ${data.successCount} users.`);
+      if (data.errors?.length > 0) {
+        toast.error(`Skipped ${data.errors.length} records. Check console for details.`);
+        console.warn("Import Errors:", data.errors);
+      }
+      setIsImportModalOpen(false);
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to import CSV");
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white font-mono">User Management</h1>
-        <p className="text-sm text-slate-400 mt-1">Manage voter registrations and account statuses</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white font-mono">User Management</h1>
+          <p className="text-sm text-slate-400 mt-1">Manage voter registrations and account statuses</p>
+        </div>
+        <button
+          onClick={() => setIsImportModalOpen(true)}
+          className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg font-mono text-sm font-bold shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:shadow-[0_0_25px_rgba(6,182,212,0.5)] transition-all"
+        >
+          + Import CSV
+        </button>
       </div>
 
       {/* Stats row */}
@@ -228,6 +270,42 @@ export default function VotersPage() {
           </div>
         )}
       </div>
+    {/* Import Modal */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0d1421] border border-slate-700/50 rounded-xl p-6 max-w-md w-full shadow-2xl relative">
+            <h2 className="text-lg font-bold text-white font-mono mb-2">Bulk Import Voters</h2>
+            <p className="text-sm text-slate-400 mb-6">
+              Upload a CSV file with the following columns: <code className="text-cyan-400">Name, Email, Password (Optional)</code>.
+            </p>
+
+            <div className="border-2 border-dashed border-slate-700/50 rounded-lg p-8 text-center hover:border-cyan-500/50 transition-colors cursor-pointer relative">
+              <input
+                type="file"
+                accept=".csv"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                disabled={importing}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+              />
+              <div className="text-4xl mb-3">📄</div>
+              <div className="text-sm font-mono text-slate-300">
+                {importing ? "Importing..." : "Click or drag CSV here"}
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setIsImportModalOpen(false)}
+                disabled={importing}
+                className="px-4 py-2 text-sm font-mono text-slate-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -21,12 +21,11 @@ enum Role {
 }
 
 enum ElectionType {
-  PRESIDENTIAL
-  PARLIAMENTARY
-  MUNICIPAL
-  SENATE
-  CORPORATE
-  STUDENT
+  HOUSING_SOCIETY
+  STUDENT_COUNCIL
+  TRADE_UNION
+  CORPORATE_BOARD
+  CLUB_SOCIETY
   OTHER
 }
 
@@ -60,32 +59,37 @@ enum AuditAction {
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String  @id @default(cuid())
+  email        String  @unique
   passwordHash String
   name         String
   phone        String?
   avatarUrl    String?
-  role         Role     @default(VOTER)
-  isVerified   Boolean  @default(false)
-  isApproved   Boolean  @default(false)
-  isSuspended  Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  role         Role    @default(VOTER)
+  isVerified   Boolean @default(false)
+  isApproved   Boolean @default(false)
+  isSuspended  Boolean @default(false)
+
+  memberId          String? // Flat Number, Employee ID, Roll Number
+  preferredLanguage String  @default("en")
+  isPro             Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   adminId      String?
-  admin        User?        @relation("AdminUsers", fields: [adminId], references: [id])
-  managedUsers User[]       @relation("AdminUsers")
+  admin        User?   @relation("AdminUsers", fields: [adminId], references: [id])
+  managedUsers User[]  @relation("AdminUsers")
 
   managedParties   Party[]    @relation("AdminParties")
   managedElections Election[] @relation("AdminElections")
 
-  candidate  Candidate?
-  partyAdmin PartyAdmin?
-  votes      Vote[]
-  auditLogs  AuditLog[]
-  otpCodes   OtpCode[]
-  enrolledElections Election[] @relation("ElectionVoters")
+  candidate         Candidate?
+  partyAdmin        PartyAdmin?
+  votes             Vote[]
+  auditLogs         AuditLog[]
+  otpCodes          OtpCode[]
+  enrolledElections Election[]  @relation("ElectionVoters")
 
   @@map("users")
 }
@@ -103,8 +107,8 @@ model Party {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  adminId      String?
-  admin        User?    @relation("AdminParties", fields: [adminId], references: [id])
+  adminId String?
+  admin   User?   @relation("AdminParties", fields: [adminId], references: [id])
 
   candidates  Candidate[]
   partyAdmins PartyAdmin[]
@@ -156,24 +160,23 @@ model Election {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  adminId        String?
-  admin          User?               @relation("AdminElections", fields: [adminId], references: [id])
+  adminId String?
+  admin   User?   @relation("AdminElections", fields: [adminId], references: [id])
 
-  candidates ElectionCandidate[]
-  votes      Vote[]
-  enrolledVoters User[] @relation("ElectionVoters")
+  candidates     ElectionCandidate[]
+  votes          Vote[]
+  enrolledVoters User[]              @relation("ElectionVoters")
 
   @@map("elections")
 }
 
 model ElectionCandidate {
-  id          String @id @default(cuid())
+  id          String    @id @default(cuid())
   electionId  String
   candidateId String
-
-  election  Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
-  candidate Candidate @relation(fields: [candidateId], references: [id])
-  votes     Vote[]
+  election    Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidate   Candidate @relation(fields: [candidateId], references: [id])
+  votes       Vote[]
 
   @@unique([electionId, candidateId])
   @@map("election_candidates")

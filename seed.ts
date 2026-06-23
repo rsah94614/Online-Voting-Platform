@@ -214,7 +214,7 @@ async function main() {
       id: "election-live-001",
       title: "2026 Presidential Election",
       description: "National presidential election. All registered voters are eligible.",
-      type: ElectionType.PRESIDENTIAL,
+      type: ElectionType.CORPORATE_BOARD,
       status: ElectionStatus.LIVE,
       startDate: new Date(now.getTime() - 2 * 60 * 60 * 1000), // 2h ago
       endDate: new Date(now.getTime() + 22 * 60 * 60 * 1000),  // 22h from now
@@ -229,7 +229,7 @@ async function main() {
       id: "election-upcoming-001",
       title: "Senate District 7 By-Election",
       description: "Special by-election for the vacant Senate seat in District 7.",
-      type: ElectionType.SENATE,
+      type: ElectionType.STUDENT_COUNCIL,
       status: ElectionStatus.UPCOMING,
       startDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
       endDate: new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000),
@@ -244,7 +244,7 @@ async function main() {
       id: "election-ended-001",
       title: "Municipal Council 2025",
       description: "City municipal council elections.",
-      type: ElectionType.MUNICIPAL,
+      type: ElectionType.HOUSING_SOCIETY,
       status: ElectionStatus.ENDED,
       startDate: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
       endDate: new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000),

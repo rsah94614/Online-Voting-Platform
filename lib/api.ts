@@ -11,6 +11,7 @@ export interface AuthUser {
   isApproved: boolean;
   isVerified: boolean;
   avatarUrl: string | null;
+  isPro?: boolean;
 }
 
 export interface Election {
@@ -183,9 +184,11 @@ export const analyticsApi = {
         totalVotesCast: number;
         totalCandidates: number;
         pendingCandidates: number;
-        electionsByStatus: object[];
-        recentActivity: object[];
-        monthlyElections: object[];
+        averageTurnout: number;
+        systemUptime: string;
+        electionsByStatus: Record<string, number>;
+        recentActivity: any[];
+        electionsByMonth: any[];
       };
     }>("/api/analytics/admin"),
 };

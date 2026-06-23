@@ -36,8 +36,8 @@ export default function Results() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 fade-in">
         <div className="bg-[#0a0a1a] border border-[rgba(0,212,255,0.18)] rounded-2xl p-7">
-          <h3 className="font-orb text-lg font-bold text-white mb-2">🗳️ National Presidential Election 2024</h3>
-          <p className="text-sm text-[#94a3b8] mb-4">Live vote count as ballots are being cast across all 29 states.</p>
+          <h3 className="font-orb text-lg font-bold text-white mb-2">🗳️ Annual General Body Election</h3>
+          <p className="text-sm text-[#94a3b8] mb-4">Live vote count as ballots are being cast by members.</p>
           <div className="flex items-center gap-2 text-xs text-[#00ff88] bg-[rgba(0,255,136,0.08)] px-3 py-2 rounded mb-4 font-mono">
             <span className="w-1 h-1 rounded-full bg-[#00ff88] shadow-[0_0_6px_#00ff88] inline-block animate-pulse"></span>
             ELECTION IN PROGRESS
@@ -55,10 +55,10 @@ export default function Results() {
 
           <div className="grid grid-cols-2 gap-2">
             {[
-              { num: '847,293', label: 'Votes Cast' },
-              { num: '1,240,000', label: 'Total Voters' },
-              { num: '68.3%', label: 'Turnout' },
-              { num: '392,707', label: 'Yet to Vote' }
+              { num: '320', label: 'Votes Cast' },
+              { num: '450', label: 'Total Voters' },
+              { num: '71.1%', label: 'Turnout' },
+              { num: '130', label: 'Yet to Vote' }
             ].map((item) => (
               <div key={item.label} className="bg-[#0e0e24] border border-[rgba(0,212,255,0.18)] rounded p-3 text-center">
                 <div className="font-orb font-bold text-[#00d4ff] text-sm">{item.num}</div>
@@ -79,10 +79,10 @@ export default function Results() {
 
           <div className="space-y-4">
             {[
-              { initials: 'AC', name: 'Aria Chen', party: 'National Progress', pct: 100, votes: '289,574', color: 'from-[#00d4ff] to-[#7c3aed]', leader: true },
-              { initials: 'MR', name: 'Marcus Reed', party: 'Liberty Alliance', pct: 83.9, votes: '243,173', color: 'from-[#7c3aed] to-[#ff2d6a]' },
-              { initials: 'SV', name: 'Sofia Vega', party: 'United Front', pct: 64.6, votes: '187,253', color: 'from-[#ff2d6a] to-[#f59e0b]' },
-              { initials: 'JO', name: 'James Okafor', party: 'Green Future', pct: 43.8, votes: '127,293', color: 'from-[#00ff88] to-[#00d4ff]' },
+              { initials: 'AC', name: 'Aria Chen', party: 'Green Society', pct: 42.5, votes: '136', color: 'from-[#00d4ff] to-[#7c3aed]', leader: true },
+              { initials: 'MR', name: 'Marcus Reed', party: 'Tech Club', pct: 35.2, votes: '112', color: 'from-[#7c3aed] to-[#ff2d6a]' },
+              { initials: 'SV', name: 'Sofia Vega', party: 'Student Union', pct: 18.1, votes: '58', color: 'from-[#ff2d6a] to-[#f59e0b]' },
+              { initials: 'JO', name: 'James Okafor', party: 'Oakwood HOA', pct: 4.2, votes: '14', color: 'from-[#00ff88] to-[#00d4ff]' },
             ].map((result) => (
               <div key={result.initials} className="flex items-start gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 bg-gradient-to-br ${result.color}`}>

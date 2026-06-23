@@ -1,6 +1,6 @@
-# 🏛️ VOTEX - Enterprise-Grade Election Platform
+# 🏛️ VOTEX - Community Online Voting Platform
 
-**The complete, secure, production-ready cyberpunk election management system.**
+**A secure, open-source, and easy-to-use election management system for communities, student councils, and organizations.**
 
 Built with Next.js 15 (App Router), TypeScript, Prisma ORM, PostgreSQL, Tailwind CSS, Zustand, and TanStack Query.
 
@@ -15,7 +15,7 @@ Built with Next.js 15 (App Router), TypeScript, Prisma ORM, PostgreSQL, Tailwind
 
 ## 🎯 Platform Overview
 
-VOTEX is a fully integrated, secure, enterprise-grade voting platform designed for high-integrity elections, universities, corporations, and multi-tenant environments.
+VOTEX is a free and open-source online voting platform designed to make local elections, student councils, and community group voting incredibly simple and secure.
 
 ### 🏢 True Multi-Tenant Architecture
 - **Isolated Admin Worlds:** Multiple organizations can use the same VOTEX deployment. Anyone can register as an `ADMIN` on the public `/register` page and instantly get their own completely isolated environment.
@@ -31,10 +31,10 @@ VOTEX is a fully integrated, secure, enterprise-grade voting platform designed f
 - **Winner Declarations:** Beautiful, confetti-filled UI banners automatically declare winners when an election concludes.
 - **Export Data:** Instantly export final election results as **CSV** or **PDF** documents for official auditing and record keeping.
 
-### 🛡️ Enterprise Security & Auditing
-- **Cryptographic Receipts:** Every vote cast generates a unique, salted SHA-256 receipt hash, allowing voters to verify their vote was recorded without revealing their choice.
-- **Security Audit Dashboard:** Admins have access to a dedicated `/admin/audit` page that tracks failed logins, suspensions, and critical actions across their tenant. Includes CSV export for SIEM ingestion.
-- **Rate Limiting:** All API routes are protected by robust middleware and IP-based rate limiting to prevent brute-force attacks.
+### 🛡️ Security & Privacy
+- **Cryptographic Receipts:** Every vote cast generates a unique receipt hash, ensuring transparency.
+- **Audit Dashboard:** Admins have access to a dedicated `/admin/audit` page that tracks platform activity.
+- **Role-Based Access:** Isolated dashboards for Admins, Voters, and Candidates.
 
 ### 📱 Progressive Web App (PWA)
 - VOTEX can be installed directly to user devices (iOS, Android, Windows, Mac) as a standalone application.
@@ -120,6 +120,6 @@ Alternatively, if you ran the seed script, the following global demo accounts ar
 
 ## 📄 License
 
-This project is provided as a complete, enterprise-grade election management system.
+This project is open-source and free to use.
 
-Made with ❤️ for democratic elections worldwide.
+Made with ❤️ for communities worldwide.

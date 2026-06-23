@@ -76,7 +76,9 @@ export default function RegisterPage() {
               bg-clip-text text-transparent tracking-widest">VOTEX</span>
           </Link>
           <h1 className="font-orb text-2xl font-bold text-white mt-4 mb-2">Create Admin Account</h1>
-          <p className="text-sm text-[#94a3b8]">Create a dedicated tenant to host your own elections</p>
+          <p className="text-sm text-[#94a3b8]">
+            Sign up as an administrator to establish your election tenant. Once registered, you will be able to securely manage your candidates, political parties, and voter rolls from your dashboard.
+          </p>
         </div>
 
         {/* Card */}

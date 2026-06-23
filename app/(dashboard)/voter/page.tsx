@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useElectionStream } from "@/hooks/useElectionStream";
 import CountdownTimer from "@/components/dashboard/CountdownTimer";
 import toast from "react-hot-toast";
+import AdBanner from "@/components/AdBanner";
 
 interface Election {
   id: string;
@@ -453,6 +454,8 @@ export default function VoterDashboard() {
         <p className="text-xs sm:text-sm text-slate-400 mt-1">Active and upcoming elections you are eligible to vote in</p>
       </div>
 
+      <AdBanner />
+
       {isLoading ? (
         <div className="flex items-center justify-center h-64 text-slate-400">
           <div className="animate-spin w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full mr-3" />
@@ -496,6 +499,8 @@ export default function VoterDashboard() {
           )}
         </>
       )}
+      
+      {!isLoading && <AdBanner />}
     </div>
   );
 }

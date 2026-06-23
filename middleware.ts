@@ -10,6 +10,7 @@ const PROTECTED_UI_PREFIXES = ["/admin", "/voter", "/candidate", "/party"];
 // API routes that DO NOT require authentication
 const PUBLIC_API_ROUTES = [
   "/api/auth/login",
+  "/api/auth/register",
   "/api/auth/verify",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",

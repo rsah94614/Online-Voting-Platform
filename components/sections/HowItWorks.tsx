@@ -18,8 +18,8 @@ export default function HowItWorks() {
       num: '03',
       icon: '🔐',
       title: 'Verify Voters',
-      desc: 'Import voter rolls or let voters self-register. Verify identities via email OTP, national ID, or biometrics.',
-      tags: ['Biometric ID', 'OTP / Email', 'Blockchain dedupe'],
+      desc: 'Import voter rolls via CSV or let voters self-register. Verify identities via Email OTP or Admin Approval.',
+      tags: ['Email OTP', 'CSV Import', 'Admin Approval'],
     },
     {
       num: '04',

@@ -3,9 +3,9 @@ import SectionHeader from '../SectionHeader'
 const features = [
   {
     icon: '🛡️',
-    title: 'Military-Grade Security',
-    desc: 'End-to-end encryption, zero-knowledge vote storage, immutable audit trails, and multi-factor authentication.',
-    tag: 'AES-256 · ZKP · HSM · ISO 27001',
+    title: 'Secure & Private',
+    desc: 'Industry-standard password hashing, tenant isolation, and secure session management to ensure voting integrity.',
+    tag: 'Bcrypt · JWT · Tenant Isolation',
     color: 'from-[rgba(0,212,255,0.1)]',
   },
   {
@@ -31,16 +31,16 @@ const features = [
   },
   {
     icon: '⚙️',
-    title: 'Fully Customizable Workflow',
-    desc: 'Define your own election rules — ranked choice, first-past-the-post, multi-round, weighted votes.',
-    tag: 'FPTP · RCV · Multi-round · Weighted',
+    title: 'Simple Customization',
+    desc: 'Define your election dates, manage voter lists via CSV, and oversee the entire process from a unified dashboard.',
+    tag: 'Scheduling · Bulk Import',
     color: 'from-[rgba(255,45,106,0.1)]',
   },
   {
     icon: '📊',
-    title: 'Advanced Analytics',
-    desc: 'Deep insights with geographic vote heatmaps, demographic breakdowns, turnout trends, and predictive modelling.',
-    tag: 'Heatmaps · Reports · Demographics',
+    title: 'Platform Analytics',
+    desc: 'Get high-level insights into your community engagement, voter turnout percentages, and historical election data.',
+    tag: 'Turnout · Activity Logs',
     color: 'from-[rgba(59,130,246,0.1)]',
   },
 ]
@@ -50,9 +50,9 @@ export default function Features() {
     <section className="py-24 px-[5%]" id="features">
       <SectionHeader
         eyebrow="Core Capabilities"
-        title="Everything Your Election"
-        titleHighlight="Demands"
-        description="From small-scale community votes to national elections with millions of voters — VOTEX handles it all with military-grade security and real-time performance."
+        title="Everything Your Community"
+        titleHighlight="Needs"
+        description="From small student councils to large organizational boards — VOTEX handles it all with a focus on simplicity, security, and real-time performance."
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
